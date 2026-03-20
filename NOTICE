@@ -1,7 +1,7 @@
-This project is derived from Howdy (https://github.com/boltgolt/howdy),
+This project is derived from [Howdy](https://github.com/boltgolt/howdy),
 originally licensed under the MIT License.
 
 Portions of the original codebase have been modified and extended.
 All new code and modifications are licensed under GNU GPLv2.
 
-The original MIT license text is included in /licenses/MIT.txt.
+The original MIT license text is included in `/licenses/MIT.txt`.
