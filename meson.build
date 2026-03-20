@@ -1,4 +1,4 @@
-project('howdy', 'cpp', license: 'MIT', version: 'beta', meson_version: '>= 0.64.0')
+project('secureEye', 'cpp', license: 'GPLv2', version: 'beta', meson_version: '>= 0.64.0')
 
 dlibdatadir = get_option('dlib_data_dir') != '' ? get_option('dlib_data_dir') : join_paths(get_option('prefix'), get_option('datadir'), 'dlib-data')
 confdir = get_option('config_dir') != '' ? get_option('config_dir') : join_paths(get_option('prefix'), get_option('sysconfdir'), 'howdy')
@@ -17,5 +17,4 @@ paths_dict = {
 }
 
 # We need to keep this order beause howdy-gtk defines the gtk script path which is used later in howdy
-subdir('howdy-gtk')
-subdir('howdy')
+subdir('secureEye')

@@ -1,0 +1,47 @@
+.\" Please adjust this date whenever revising the manpage.
+.TH SecureEye 1 "April 9, 2018" "SecureEye help" "User Commands"
+.SH NAME
+secureEye \- Windows Hello style authentication for Linux
+.SH DESCRIPTION
+SecureEye IR face recognition implements a PAM module to use your face as a authentication method.
+.SS "Usage:"
+.IP
+secureEye [\-U USER] [\-y] [\-h] command [argument]
+.SS "Commands:"
+.TP
+add
+Add a new face model for an user.
+.TP
+clear
+Remove all face models for an user.
+.TP
+config
+Open the config file in gedit.
+.TP
+disable
+Disable or enable secureEye.
+.TP
+list
+List all saved face models for an user.
+.TP
+remove
+Remove a specific model for an user.
+.TP
+clear
+Remove all face models for an user.
+.TP
+test
+Test the camera and recognition methods.
+.SS "Optional arguments:"
+.TP
+\fB\-U\fR USER, \fB\-\-user\fR USER
+Set the user account to use.
+.TP
+\fB\-y\fR
+Skip all questions.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Show this help message and exit.
+.PP
+.SH AUTHOR
+SecureEye was written by Vedran Hrabar based on Howdy by boltgolt, for more information visit https://github.com/vhrabar/secureEye
