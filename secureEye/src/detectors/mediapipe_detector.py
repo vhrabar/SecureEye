@@ -1,13 +1,17 @@
 from typing import List, Tuple
 
+import cv2
 import mediapipe as mp
-import numpy as np
 from numpy.typing import NDArray
+from keras.models import load_model
+
 from .base import FaceDetector
+from .utils import preprocess_face
 
 
 class MediaPipeDetector(FaceDetector):
     def __init__(self):
+        self.facenet_model = load_model("facenet_keras.h5")
         self.mp_detector = mp.solutions.face_detection.FaceDetection(
             model_selection=1, min_detection_confidence=0.5
         )
@@ -31,4 +35,9 @@ class MediaPipeDetector(FaceDetector):
         return boxes
 
     def encode(self, frame: NDArray, face_box: Tuple[int, int, int, int]) -> NDArray:
-        return np.zeros(128)  # TODO: implement proper encooding
+        x, y, w, h = face_box
+        face_img = frame[y : y + h, x : x + w]
+        face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+        face_input = preprocess_face(face_img)
+        embedding = self.facenet_model.predict(face_input)
+        return embedding[0]
