@@ -17,6 +17,15 @@ py_paths = configure_file(
 )
 
 py_sources = [
+    'auth/__init__.py',
+    'auth/detector_factory.py',
+    'auth/errors.py',
+    'auth/frame_ops.py',
+    'auth/matching.py',
+    'auth/model_store.py',
+    'auth/session.py',
+    'auth/types.py',
+    'auth/ui_bridge.py',
     'cli/__init__.py',
     'cli/add.py',
     'cli/clear.py',
@@ -29,6 +38,11 @@ py_sources = [
     'cli/test.py',
     'cli.py',
     'compare.py',
+    'detectors/__init__.py',
+    'detectors/base.py',
+    'detectors/dlib_detector.py',
+    'detectors/mediapipe_detector.py',
+    'detectors/utils.py',
     'i18n.py',
     'paths_factory.py',
     'recorders/__init__.py',
