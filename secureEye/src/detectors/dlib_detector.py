@@ -9,7 +9,9 @@ from .base import FaceDetector
 
 try:
     import paths_factory
-except ImportError:  # pragma: no cover - fallback for package-style execution
+except ModuleNotFoundError as exc:  # pragma: no cover - fallback for package-style execution
+    if getattr(exc, "name", "") != "paths_factory":
+        raise
     from secureEye.src import paths_factory
 
 

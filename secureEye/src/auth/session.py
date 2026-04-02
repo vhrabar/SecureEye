@@ -12,9 +12,10 @@ from typing import Any
 import cv2
 import numpy as np
 
-from secureEye.src import paths_factory, snapshot
-from secureEye.src.i18n import _
-from secureEye.src.recorders.video_capture import VideoCapture
+import paths_factory
+import snapshot
+from i18n import _
+from recorders.video_capture import VideoCapture
 from .detector_factory import create_detector, DetectorFactoryError
 from .errors import ExitCode
 from .frame_ops import apply_rotation_mode, darkness_percent, maybe_scale
@@ -199,7 +200,9 @@ class AuthSession:
 
         try:
             import rubberstamps
-        except ImportError:  # pragma: no cover - fallback for package-style execution
+        except ModuleNotFoundError as exc:  # pragma: no cover - fallback for package-style execution
+            if getattr(exc, "name", "") != "rubberstamps":
+                raise
             from secureEye.src import rubberstamps
 
         self._send_ui("S", "")
