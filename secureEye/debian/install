@@ -1,4 +1,6 @@
+src/auth/. lib/security/secureEye/auth
 src/cli/. lib/security/secureEye/cli
+src/detectors/. lib/security/secureEye/detectors
 src/locales/. lib/security/secureEye/locales
 src/recorders/. lib/security/secureEye/recorders
 src/rubberstamps/. lib/security/secureEye/rubberstamps
@@ -6,6 +8,7 @@ src/cli.py lib/security/secureEye
 src/compare.py lib/security/secureEye
 src/i18n.py lib/security/secureEye
 src/logo.png lib/security/secureEye
+src/paths_factory.py lib/security/secureEye
 src/snapshot.py lib/security/secureEye
 
 build/pam_secureEye.so lib/security/secureEye
