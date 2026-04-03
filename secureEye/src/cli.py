@@ -1,12 +1,14 @@
+#!/usr/bin/python3
+
 # CLI directly called by running the secureEye command
 
-# Import required modules
-import sys
-import os
-import pwd
-import getpass
 import argparse
 import builtins
+import getpass
+import os
+import pwd
+# Import required modules
+import sys
 
 from i18n import _
 
@@ -97,22 +99,22 @@ if args.user == "root":
 
 # Execute the right command
 if args.command == "add":
-	import cli.add
+	pass
 elif args.command == "clear":
-	import cli.clear
+	pass
 elif args.command == "config":
-	import cli.config
+	pass
 elif args.command == "disable":
-	import cli.disable
+	pass
 elif args.command == "list":
-	import cli.list
+	pass
 elif args.command == "remove":
-	import cli.remove
+	pass
 elif args.command == "set":
-	import cli.set
+	pass
 elif args.command == "snapshot":
-	import cli.snap
+	pass
 elif args.command == "test":
-	import cli.test
+	pass
 else:
 	print("SecureEye 0.0.1")
