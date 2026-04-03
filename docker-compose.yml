@@ -1,0 +1,19 @@
+services:
+  tests:
+    build:
+      context: .
+      target: test
+    image: secureeye:test
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace:ro
+    command:
+      - tests
+      - -v
+      - -m
+      - not mediapipe_integration
+      - -o
+      - cache_dir=/tmp/pytest_cache
+
+
+
