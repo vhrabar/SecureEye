@@ -30,9 +30,9 @@ Early development. Core architecture and modules are being actively built.
 
 ## Installation
 
-*Not yet available.*
+### Manual Installation
 
-Instructions will be provided once a stable version is ready.
+### PPA
 
 ---
 
@@ -49,8 +49,34 @@ Instructions will be provided once a stable version is ready.
 * Python 3.12+
 * pip / virtualenv
 
+### Docker PAM Automation
 
+Use the Compose `pam-smoke` service to run an automated in-container PAM flow without touching host PAM.
 
+`smoke` flow (build/install + PAM patch + sudo check):
+
+```bash
+docker compose --profile pam build pam-smoke
+docker compose --profile pam run --rm pam-smoke
+```
+
+`full` flow (smoke + `secureEye add` + `secureEye test`):
+
+```bash
+PAM_FLOW=full docker compose --profile pam run --rm pam-smoke
+```
+
+Interactive flow (prompts for user/password/device and optional add/test):
+
+```bash
+PAM_FLOW=interactive docker compose --profile pam run --rm pam-smoke
+```
+
+Override camera device if needed:
+
+```bash
+SECUREEYE_VIDEO_DEVICE=/dev/video0 docker compose --profile pam run --rm pam-smoke
+```
 
 ## License
 
