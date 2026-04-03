@@ -7,3 +7,8 @@ skip-string-normalization = false
 line-length = 100
 select = ["E", "F", "W", "C", "B"]
 ignore = ["RUF001"]
+
+[tool.pytest.ini_options]
+markers = [
+	"mediapipe_integration: tests that require the real mediapipe package",
+]
