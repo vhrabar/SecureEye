@@ -9,7 +9,7 @@ include /usr/share/dpkg/default.mk
 
 build:
 	# Create build dir
-	meson setup -Dinih:with_INIReader=true build src/pam
+	meson setup -Dinih:with_INIReader=true build ..
 	# Compile shared object
 	ninja -C build
 
@@ -17,6 +17,6 @@ clean:
 	# Delete mason build directory
 	rm -rf ./build
 	# Force remove temp debian build directory
-	rm -rf ./debian/secureEye
+	rm -rf ./debian/secure-eye
 	# Make sure subprojects get pulled locally
 	meson subprojects download --sourcedir src/pam
