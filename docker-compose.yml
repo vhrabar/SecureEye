@@ -15,5 +15,23 @@ services:
       - -o
       - cache_dir=/tmp/pytest_cache
 
-
-
+  pam-smoke:
+    profiles: [ "pam" ]
+    build:
+      context: .
+      target: pam-smoke
+    image: secureeye:pam-smoke
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    privileged: true
+    devices:
+      - ${SECUREEYE_VIDEO_DEVICE:-/dev/video2}:${SECUREEYE_VIDEO_DEVICE:-/dev/video2}
+    volumes:
+      - ./:/workspace:ro
+    environment:
+      PAM_FLOW: ${PAM_FLOW:-smoke}
+      PAM_SERVICE: ${PAM_SERVICE:-sudo}
+      SECUREEYE_USER: ${SECUREEYE_USER:-test_user}
+      SECUREEYE_PASS: ${SECUREEYE_PASS:-test_user}
+      SECUREEYE_DEVICE: ${SECUREEYE_DEVICE:-${SECUREEYE_VIDEO_DEVICE:-/dev/video2}}

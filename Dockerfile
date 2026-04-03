@@ -46,5 +46,12 @@ RUN chmod +x /usr/local/bin/entrypoint-pytest.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint-pytest.sh"]
 CMD ["tests", "-v", "-m", "not mediapipe_integration", "-o", "cache_dir=/tmp/pytest_cache"]
 
+# Optional image for PAM smoke tests; includes full requirements.
+FROM base AS pam-smoke
+RUN python -m pip install -r /tmp/requirements.txt
 
+COPY docker/entrypoint-pam-sudo-smoke.sh /usr/local/bin/entrypoint-pam-sudo-smoke.sh
+RUN chmod +x /usr/local/bin/entrypoint-pam-sudo-smoke.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint-pam-sudo-smoke.sh"]
 
