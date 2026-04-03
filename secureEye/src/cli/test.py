@@ -135,17 +135,16 @@ try:
 		# Fetch the frame height and width
 		height, width = frame.shape[:2]
 
-		# Create a histogram of the image with 8 values
-		hist = cv2.calcHist([frame], [0], None, [8], [0, 256])
+		# Create a histogram of the image with 8 values using NumPy.
+		# Group 256 grayscale values into 8 equally sized bins.
+		hist = np.bincount(frame.ravel(), minlength=256).reshape(8, 32).sum(axis=1)
 		# All values combined for percentage calculation
-		hist_total = int(np.sum(hist))
+		hist_total = int(hist.sum())
 		# Fill with the overall containing percentage
-		hist_perc = []
+		hist_perc = hist * (100.0 / hist_total)
 
 		# Loop though all values to calculate a percentage and add it to the overlay
-		for index, value in enumerate(hist):
-			value_perc = float(value[0]) / hist_total * 100
-			hist_perc.append(value_perc)
+		for index, value_perc in enumerate(hist_perc):
 
 			# Top left point, 10px margins
 			p1 = (20 + (10 * index), 10)
