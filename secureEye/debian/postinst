@@ -4,6 +4,7 @@
 
 # Import required modules
 import fileinput
+import importlib.util
 import os
 import re
 import subprocess
@@ -64,85 +65,90 @@ if "upgrade" in sys.argv:
 			newConf.write(configfile)
 
 	sys.exit(0)
+cuda_used = None
 
-log("Downloading dlib")
-
-dlib_archive = "/tmp/v19.16.tar.gz"
-loader = which("wget")
-LOADER_CMD = None
-
-# If wget is installed, use that as the downloader
-if loader:
-	LOADER_CMD = [loader, "--tries", "5", "--output-document"]
-# Otherwise, fall back on curl
+if importlib.util.find_spec("dlib") is not None:
+	log("Using system python3-dlib, skipping source build")
 else:
-	loader = which("curl")
-	LOADER_CMD = [loader, "--retry", "5", "--location", "--output"]
+	log("Downloading dlib")
 
-# Assemble and execute the download command
-cmd = LOADER_CMD + [dlib_archive, "https://github.com/davisking/dlib/archive/v19.16.tar.gz"]
-handleStatus(sc(cmd))
+	dlib_archive = "/tmp/v19.16.tar.gz"
+	loader = which("wget")
+	LOADER_CMD = None
 
-# The folder containing the dlib source
-DLIB_DIR = None
-# A regex of all files to ignore while unpacking the archive
-excludes = re.compile(
-	r"davisking-dlib-\w+/(dlib/(http_client|java|matlab|test/)|"
-	r"(docs|examples|python_examples)|"
-	r"tools/(archive|convert_dlib_nets_to_caffe|htmlify|imglab|python/test|visual_studio_natvis))"
-)
+	# If wget is installed, use that as the downloader
+	if loader:
+		LOADER_CMD = [loader, "--tries", "5", "--output-document"]
+	# Otherwise, fall back on curl
+	else:
+		loader = which("curl")
+		LOADER_CMD = [loader, "--retry", "5", "--location", "--output"]
 
-# Open the archive
-with tarfile.open(dlib_archive) as tf:
-	for item in tf:
-		# Set the destination dir if unset
-		if not DLIB_DIR:
-			DLIB_DIR = "/tmp/" + item.name
+	# Assemble and execute the download command
+	cmd = LOADER_CMD + [dlib_archive, "https://github.com/davisking/dlib/archive/v19.16.tar.gz"]
+	handleStatus(sc(cmd))
 
-		# extract only files sufficient for building
-		if not excludes.match(item.name):
-			tf.extract(item, "/tmp")
+	# The folder containing the dlib source
+	DLIB_DIR = None
+	# A regex of all files to ignore while unpacking the archive
+	excludes = re.compile(
+		r"davisking-dlib-\w+/(dlib/(http_client|java|matlab|test/)|"
+		r"(docs|examples|python_examples)|"
+		r"tools/(archive|convert_dlib_nets_to_caffe|htmlify|imglab|python/test|visual_studio_natvis))"
+	)
 
-# Delete the downloaded archive
-os.unlink(dlib_archive)
+	# Open the archive
+	with tarfile.open(dlib_archive) as tf:
+		for item in tf:
+			# Set the destination dir if unset
+			if not DLIB_DIR:
+				DLIB_DIR = "/tmp/" + item.name
 
-log("Building dlib")
+			# extract only files sufficient for building
+			if not excludes.match(item.name):
+				tf.extract(item, "/tmp")
 
-cmd = ["sudo", "python3", "setup.py", "install"]
-cuda_used = False
+	# Delete the downloaded archive
+	os.unlink(dlib_archive)
 
-# Compile and link dlib
-try:
-	sp = subprocess.Popen(cmd, cwd=DLIB_DIR, stdout=subprocess.PIPE)
-except subprocess.CalledProcessError:
-	print("Error while building dlib")
-	raise
+	log("Building dlib")
 
-# Go through each line from stdout to check for CUDA usage
-while sp.poll() is None:
-	line = sp.stdout.readline().decode("utf-8")
+	cmd = ["python3", "setup.py", "install"]
+	cuda_used = False
 
-	if "DLIB WILL USE CUDA" in line:
-		cuda_used = True
+	# Compile and link dlib
+	try:
+		sp = subprocess.Popen(cmd, cwd=DLIB_DIR, stdout=subprocess.PIPE)
+	except subprocess.CalledProcessError:
+		print("Error while building dlib")
+		raise
 
-	print(line, end="")
+	# Go through each line from stdout to check for CUDA usage
+	while sp.poll() is None:
+		line = sp.stdout.readline().decode("utf-8")
 
-log("Cleaning up dlib")
+		if "DLIB WILL USE CUDA" in line:
+			cuda_used = True
 
-# Remove the no longer needed git clone
-del sp
-rmtree(DLIB_DIR)
+		print(line, end="")
 
-print("Temporary dlib files removed")
+	log("Cleaning up dlib")
+
+	# Remove the no longer needed git clone
+	del sp
+	rmtree(DLIB_DIR)
+
+	print("Temporary dlib files removed")
 
 log("Configuring secureEye")
 
-# Make sure to use CNN if dlib was compiled with CUDA support
-for line in fileinput.input(["/etc/secureEye/config.ini"], inplace=1):
-	line = line.replace("use_cnn = false", "use_cnn = " + str(cuda_used).lower())
-	print(line, end="")
+# Make sure to use CNN if fallback dlib build was compiled with CUDA support
+if cuda_used is not None:
+	for line in fileinput.input(["/etc/secureEye/config.ini"], inplace=1):
+		line = line.replace("use_cnn = false", "use_cnn = " + str(cuda_used).lower())
+		print(line, end="")
 
-print("CNN saved to config, CUDA " + ("enabled" if cuda_used else "disabled"))
+	print("CNN saved to config, CUDA " + ("enabled" if cuda_used else "disabled"))
 
 # Secure the secureEye folder
 handleStatus(sc(["chmod 755 -R /lib/security/secureEye/"], shell=True))
@@ -155,8 +161,22 @@ handleStatus(sc(["chmod 755 -R /lib/security/secureEye/cli"], shell=True))
 print("Permissions set")
 
 # Make the CLI executable as secureEye
-os.symlink("/lib/security/secureEye/cli.py", "/usr/local/bin/secureEye")
-os.chmod("/usr/local/bin/secureEye", 0o755)
+cli_link = "/usr/local/bin/secureEye"
+cli_target = "/lib/security/secureEye/cli.py"
+
+if os.path.lexists(cli_link):
+	if os.path.islink(cli_link) and os.readlink(cli_link) == cli_target:
+		pass
+	elif os.path.islink(cli_link):
+		os.unlink(cli_link)
+		os.symlink(cli_target, cli_link)
+	else:
+		# Respect an existing regular file (e.g. packaged launcher) and avoid failing configure.
+		print("SecureEye launcher already exists, keeping existing file")
+else:
+	os.symlink(cli_target, cli_link)
+
+os.chmod(cli_link, 0o755)
 print("SecureEye command installed")
 
 log("Adding secureEye as PAM module")
