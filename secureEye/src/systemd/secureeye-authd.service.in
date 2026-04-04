@@ -1,0 +1,17 @@
+[Unit]
+Description=SecureEye Authentication Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=secureeye
+Group=secureeye
+RuntimeDirectory=secureeye
+RuntimeDirectoryMode=0755
+Environment=SECUREEYE_AUTHD_SOCKET=/run/secureeye/authd.sock
+ExecStart=@python_path@ @py_sources_dir@/secureEye/authd/main.py
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
