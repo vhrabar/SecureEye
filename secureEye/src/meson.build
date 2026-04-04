@@ -66,6 +66,7 @@ endif
 
 pam_module_conf_data = configuration_data(paths_dict)
 pam_module_conf_data.set('compare_script_path', join_paths(pysourcesinstalldir, 'compare.py'))
+pam_module_conf_data.set('authd_socket_path', get_option('authd_socket_path'))
 pam_module_conf_data.set('config_file_path', config_path)
 subdir('pam')
 if get_option('install_pam_config')
