@@ -1,6 +1,8 @@
+import json
 import os
 import signal
 import socket
+import struct
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -43,8 +45,45 @@ def _prepare_socket(socket_path: str) -> socket.socket:
     return sock
 
 
+def _read_socket(conn: socket.socket, size: int) -> bytes:
+    """
+    Read a fixed-size chunk from the client.
+    :param conn: the client connection
+    :size: number of bytes to read
+    :return: the read bytes
+    :raises ConnectionError: if the peer closed the connection before sending all data
+    """
+    data = bytearray()
+    while len(data) < size:
+        chunk = conn.recv(size - len(data))
+        if not chunk:
+            raise ConnectionError("peer closed connection")
+        data.extend(chunk)
+    return bytes(data)
+
+
 def _read_frame(conn: socket.socket) -> dict:
-    raise NotImplementedError
+    """
+    Read input frame from the client.
+    :param conn: the client connection
+    :return: the parsed payload as a dict
+    :raises ValueError: if the frame is invalid
+    """
+    header = _read_socket(conn, 4)
+    (length,) = struct.unpack("!I", header)
+    if length < 1 or length > MAX_PAYLOAD:
+        raise ValueError("invalid frame length")
+
+    body = _read_socket(conn, length)
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception as exc:
+        raise ValueError("invalid utf8/json") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("payload must be object")
+    return payload
+
 
 
 def _validate_payload(payload: dict) -> AuthRequest:
@@ -91,7 +130,16 @@ def _validate_payload(payload: dict) -> AuthRequest:
 
 
 def _write_frame(conn: socket.socket, payload: dict) -> None:
-    raise NotImplementedError
+    """
+    Send response to the client.
+    :param conn: the client connection
+    :param payload: the response payload
+    :return: None
+    """
+    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    if len(data) > MAX_PAYLOAD:
+        raise ValueError("response payload too large")
+    conn.sendall(struct.pack("!I", len(data)) + data)
 
 
 def _handle_client(conn: socket.socket, peer: str) -> None:
