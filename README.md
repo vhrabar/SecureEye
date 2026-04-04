@@ -113,6 +113,12 @@ secureEye [-U user] [-y] command [argument]
 
 ## Development
 
+### Architecture docs
+
+- PAM/authd split overview: [docs/auth-architecture.md](docs/auth-architecture.md)
+- IPC protocol contract: [docs/auth-protocol-v1.md](docs/auth-protocol-v1.md)
+- PAM return-code mapping: [docs/pam-behavior-matrix.md](docs/pam-behavior-matrix.md)
+
 ### Requirements
 
 * Python 3.12+
