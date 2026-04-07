@@ -5,6 +5,7 @@
 import argparse
 import builtins
 import getpass
+import importlib
 import os
 import pwd
 # Import required modules
@@ -97,24 +98,26 @@ if args.user == "root":
 	print(_("Can't run secureEye commands as root, please run this command with the --user flag"))
 	sys.exit(1)
 
-# Execute the right command
-if args.command == "add":
-	pass
-elif args.command == "clear":
-	pass
-elif args.command == "config":
-	pass
-elif args.command == "disable":
-	pass
-elif args.command == "list":
-	pass
-elif args.command == "remove":
-	pass
-elif args.command == "set":
-	pass
-elif args.command == "snapshot":
-	pass
-elif args.command == "test":
-	pass
-else:
+# Execute the selected command module.
+command_modules = {
+	"add": "cli.add",
+	"clear": "cli.clear",
+	"config": "cli.config",
+	"disable": "cli.disable",
+	"list": "cli.list",
+	"remove": "cli.remove",
+	"set": "cli.set",
+	"snapshot": "cli.snap",
+	"test": "cli.test",
+}
+
+if args.command == "version":
 	print("SecureEye 0.0.1")
+	sys.exit(0)
+
+module_name = command_modules.get(args.command)
+if module_name is None:
+	print(_("Unknown command"))
+	sys.exit(1)
+
+importlib.import_module(module_name)

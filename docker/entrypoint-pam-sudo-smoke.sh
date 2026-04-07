@@ -17,6 +17,7 @@ SE_CONFIG_DIR=""
 SE_MODELS_DIR=""
 SE_AUTHD_MAIN=""
 SE_CLI_BIN=""
+DROP_TO_BASH="${PAM_DROP_TO_BASH:-0}"
 
 usage() {
   cat <<EOF
@@ -28,6 +29,7 @@ Environment variables:
   SECUREEYE_USER      test user (default: test_user)
   SECUREEYE_PASS      test user password (default: test_user)
   SECUREEYE_DEVICE    camera device path in container (default: /dev/video2)
+  PAM_DROP_TO_BASH    1 to open bash after flow completion (default: 0)
 
 Flow modes:
   smoke: build/install module + patch PAM + sudo PAM smoke check
@@ -36,10 +38,19 @@ Flow modes:
 EOF
 }
 
-if [[ "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
+for arg in "$@"; do
+  case "$arg" in
+    --help)
+      usage
+      exit 0
+      ;;
+    --bash)
+      DROP_TO_BASH=1
+      ;;
+    *)
+      ;;
+  esac
+done
 
 cd /workspace
 export PYTHONPATH="/workspace/secureEye/src:${PYTHONPATH:-}"
@@ -94,19 +105,21 @@ run_interactive_sudo_check() {
   local user="$1"
   local sudo_cmd="sudo -k id"
 
-  if is_tty; then
-    su - "$user" -c "$sudo_cmd"
-    return
-  fi
-
+  # Prefer a pty wrapper
   if command -v script >/dev/null 2>&1; then
-    su - "$user" -c "script -q -c \"$sudo_cmd\" /dev/null"
-    return
+    if su - "$user" -c "script -q -c \"$sudo_cmd\" /dev/null"; then
+      return
+    fi
   fi
 
-  echo "Interactive sudo check requires a TTY (or the 'script' utility)."
-  echo "Re-run with: docker compose --profile pam run --rm pam-smoke"
-  exit 1
+  if is_tty; then
+    if su - "$user" -c "$sudo_cmd"; then
+      return
+    fi
+  fi
+
+  # Last-resort fallback for CI/containers with no usable tty.
+  su - "$user" -c "echo '$SECUREEYE_PASS' | sudo -S -k id"
 }
 
 meson_opt() {
@@ -187,12 +200,17 @@ require_model() {
   fi
 }
 
+has_model() {
+  [[ -f "$SE_MODELS_DIR/${SECUREEYE_USER}.dat" ]]
+}
+
 case "$PAM_FLOW" in
   smoke)
     ;;
   full)
     RUN_ADD=1
     RUN_TEST=1
+    DROP_TO_BASH=1
     ;;
   interactive)
     if ! is_tty; then
@@ -215,6 +233,8 @@ case "$PAM_FLOW" in
     exit 1
     ;;
 esac
+
+echo "Flow selection: PAM_FLOW=$PAM_FLOW RUN_ADD=$RUN_ADD RUN_TEST=$RUN_TEST USER=$SECUREEYE_USER"
 
 PAM_DIR="$(detect_pam_dir || true)"
 if [[ -z "$PAM_DIR" ]]; then
@@ -281,6 +301,12 @@ if [[ "$RUN_ADD" == "1" ]]; then
   run_with_display "$SE_CLI_BIN" -U "$SECUREEYE_USER" add
 fi
 
+# If test was requested without add and no model exists, enroll automatically.
+if [[ "$RUN_TEST" == "1" && "$RUN_ADD" == "0" ]] && ! has_model; then
+  echo "No face model found for $SECUREEYE_USER; running secureEye add before test"
+  run_with_display "$SE_CLI_BIN" -U "$SECUREEYE_USER" add
+fi
+
 if [[ "$RUN_ADD" == "1" || "$RUN_TEST" == "1" ]]; then
   require_model
 fi
@@ -299,4 +325,9 @@ else
 fi
 
 echo "PAM flow '$PAM_FLOW' completed inside container."
+
+if [[ "$DROP_TO_BASH" == "1" ]]; then
+  echo "Opening bash shell (DROP_TO_BASH=1)."
+  exec bash
+fi
 

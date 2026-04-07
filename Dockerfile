@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libevdev-dev \
     libinih-dev \
     libpam0g-dev \
+    nano \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
