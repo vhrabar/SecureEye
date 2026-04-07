@@ -9,6 +9,14 @@ SECUREEYE_DEVICE="${SECUREEYE_DEVICE:-${SECUREEYE_VIDEO_DEVICE:-/dev/video2}}"
 RUN_ADD=0
 RUN_TEST=0
 INTERACTIVE_SUDO=0
+AUTHD_PID=""
+AUTHD_SOCKET="${AUTHD_SOCKET:-/run/secureeye/authd.sock}"
+AUTHD_LOG="/tmp/secureeye-authd.log"
+SE_PREFIX=""
+SE_CONFIG_DIR=""
+SE_MODELS_DIR=""
+SE_AUTHD_MAIN=""
+SE_CLI_BIN=""
 
 usage() {
   cat <<EOF
@@ -82,6 +90,103 @@ prompt_yes_no() {
   [[ "$out" =~ ^[Yy]$ ]]
 }
 
+run_interactive_sudo_check() {
+  local user="$1"
+  local sudo_cmd="sudo -k id"
+
+  if is_tty; then
+    su - "$user" -c "$sudo_cmd"
+    return
+  fi
+
+  if command -v script >/dev/null 2>&1; then
+    su - "$user" -c "script -q -c \"$sudo_cmd\" /dev/null"
+    return
+  fi
+
+  echo "Interactive sudo check requires a TTY (or the 'script' utility)."
+  echo "Re-run with: docker compose --profile pam run --rm pam-smoke"
+  exit 1
+}
+
+meson_opt() {
+  local builddir="$1"
+  local optname="$2"
+  "$PYTHON_BIN" - <<'PY' "$builddir" "$optname"
+import json
+import subprocess
+import sys
+
+builddir = sys.argv[1]
+name = sys.argv[2]
+out = subprocess.check_output(["meson", "introspect", builddir, "--buildoptions"], text=True)
+for item in json.loads(out):
+    if item.get("name") == name:
+        val = item.get("value")
+        if isinstance(val, bool):
+            print("true" if val else "false")
+        else:
+            print(val)
+        break
+PY
+}
+
+discover_install_paths() {
+  local prefix="$1"
+
+  SE_AUTHD_MAIN="$(find "$prefix" -type f -path '*/secureEye/authd/main.py' | head -n 1 || true)"
+  SE_CLI_BIN="$(find "$prefix" -type f -path '*/bin/secureEye' | head -n 1 || true)"
+
+  if [[ -z "$SE_AUTHD_MAIN" ]]; then
+    echo "Could not find installed authd entrypoint under prefix: $prefix"
+    find "$prefix" -maxdepth 6 -type d -name secureEye 2>/dev/null || true
+    exit 1
+  fi
+
+  if [[ -z "$SE_CLI_BIN" ]]; then
+    echo "Could not find installed secureEye launcher under prefix: $prefix"
+    exit 1
+  fi
+}
+
+start_authd() {
+  local authd_root
+  authd_root="$(dirname "$(dirname "$SE_AUTHD_MAIN")")"
+
+  echo "Starting authd daemon ($SE_AUTHD_MAIN)"
+  : > "$AUTHD_LOG"
+  SECUREEYE_AUTHD_SOCKET="$AUTHD_SOCKET" \
+    PYTHONPATH="$authd_root:${PYTHONPATH:-}" \
+    "$PYTHON_BIN" "$SE_AUTHD_MAIN" >>"$AUTHD_LOG" 2>&1 &
+  AUTHD_PID=$!
+
+  for _ in $(seq 1 50); do
+    [[ -S "$AUTHD_SOCKET" ]] && return
+    sleep 0.1
+  done
+
+  echo "authd did not create socket at $AUTHD_SOCKET"
+  echo "--- authd log ---"
+  cat "$AUTHD_LOG" || true
+  exit 1
+}
+
+stop_authd() {
+  if [[ -n "$AUTHD_PID" ]] && kill -0 "$AUTHD_PID" >/dev/null 2>&1; then
+    kill "$AUTHD_PID" >/dev/null 2>&1 || true
+    wait "$AUTHD_PID" >/dev/null 2>&1 || true
+  fi
+}
+
+require_model() {
+  local model_path="$SE_MODELS_DIR/${SECUREEYE_USER}.dat"
+  if [[ ! -f "$model_path" ]]; then
+    echo "Face model not found for user '$SECUREEYE_USER': $model_path"
+    echo "Run flow with PAM_FLOW=full or PAM_FLOW=interactive and perform 'secureEye add'."
+    exit 1
+  fi
+}
+
 case "$PAM_FLOW" in
   smoke)
     ;;
@@ -134,6 +239,14 @@ meson setup --wipe /tmp/build-pam /workspace \
 meson compile -C /tmp/build-pam
 meson install -C /tmp/build-pam
 
+SE_PREFIX="$(meson_opt /tmp/build-pam prefix)"
+SE_CONFIG_DIR="$(meson_opt /tmp/build-pam config_dir)"
+SE_MODELS_DIR="$(meson_opt /tmp/build-pam user_models_dir)"
+
+discover_install_paths "$SE_PREFIX"
+start_authd
+trap stop_authd EXIT
+
 if [[ ! -f "$PAM_DIR/pam_secureEye.so" ]]; then
   echo "pam_secureEye.so was not installed"
   exit 1
@@ -146,7 +259,7 @@ fi
 echo "$SECUREEYE_USER:$SECUREEYE_PASS" | chpasswd
 usermod -aG sudo "$SECUREEYE_USER"
 
-CONFIG_PATH="/opt/secureeye/etc/howdy/config.ini"
+CONFIG_PATH="$SE_CONFIG_DIR/config.ini"
 if [[ -f "$CONFIG_PATH" ]]; then
   sed -i "s|^device_path = .*|device_path = $SECUREEYE_DEVICE|" "$CONFIG_PATH"
 fi
@@ -165,19 +278,22 @@ cp "$PAM_FILE" "$PAM_FILE.bak"
 
 if [[ "$RUN_ADD" == "1" ]]; then
   echo "Running secureEye add flow for user $SECUREEYE_USER"
-  run_with_display /opt/secureeye/bin/secureEye -U "$SECUREEYE_USER" add
+  run_with_display "$SE_CLI_BIN" -U "$SECUREEYE_USER" add
 fi
 
-# TODO: Implement proper GUI for test utility that amy be run inside Docker
-# if [[ "$RUN_TEST" == "1" ]]; then
-#  echo "Running secureEye test flow for user $SECUREEYE_USER"
-#  run_with_display /opt/secureeye/bin/secureEye -U "$SECUREEYE_USER" test
-# fi
+if [[ "$RUN_ADD" == "1" || "$RUN_TEST" == "1" ]]; then
+  require_model
+fi
+
+if [[ "$RUN_TEST" == "1" ]]; then
+  echo "Running secureEye test flow for user $SECUREEYE_USER"
+  run_with_display "$SE_CLI_BIN" -U "$SECUREEYE_USER" test
+fi
 
 # Sudo check: interactive mode uses a real prompt path, smoke/full stay non-interactive.
 if [[ "$INTERACTIVE_SUDO" == "1" ]]; then
   echo "Running interactive sudo check as $SECUREEYE_USER"
-  su - "$SECUREEYE_USER" -c "sudo -k id"
+  run_interactive_sudo_check "$SECUREEYE_USER"
 else
   su - "$SECUREEYE_USER" -c "echo '$SECUREEYE_PASS' | sudo -S -k id"
 fi
