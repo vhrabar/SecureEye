@@ -9,6 +9,7 @@ Group=secureeye
 RuntimeDirectory=secureeye
 RuntimeDirectoryMode=0755
 Environment=SECUREEYE_AUTHD_SOCKET=/run/secureeye/authd.sock
+Environment=PYTHONPATH=@py_sources_dir@/secureEye
 ExecStart=/var/lib/secureeye-authd/venv/bin/python3 @py_sources_dir@/secureEye/authd/main.py
 Restart=on-failure
 RestartSec=1
