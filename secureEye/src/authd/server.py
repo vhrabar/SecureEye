@@ -36,7 +36,7 @@ class AuthdServer:
             code = self._map_result(raw)
 
             resp = {
-                "version": 1,
+                "v": 1,
                 "type": "auth_response",
                 "request_id": req_id,
                 "result_code": code,
@@ -44,7 +44,7 @@ class AuthdServer:
             }
         except Exception:
             resp = {
-                "version": 1,
+                "v": 1,
                 "type": "auth_response",
                 "request_id": req_id or "",
                 "result_code": 99,

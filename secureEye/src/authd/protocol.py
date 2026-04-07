@@ -46,7 +46,8 @@ def validate_auth_request(msg: dict) -> None:
     :param msg: message to validate
     :return: None
     """
-    if msg.get("version") != 1:
+    version = msg.get("v", msg.get("version"))
+    if version != 1:
         raise ProtocolError("unsupported version")
     if msg.get("type") != "auth_request":
         raise ProtocolError("invalid type")

@@ -100,8 +100,8 @@ def _validate_payload(payload: dict) -> AuthRequest:
     if payload.get("type") != "auth_request":
         raise ValueError("invalid message type")
 
-    # extractbody
-    request_id = str(payload.get("id", ""))
+    # Protocol v1 uses request_id; keep `id` as legacy fallback.
+    request_id = str(payload.get("request_id", payload.get("id", "")))
     username = str(payload.get("username", ""))
     service = str(payload.get("service", ""))
     tty = str(payload.get("tty", ""))
@@ -177,7 +177,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
                      }
                      )
     # fail-closed connection
-    except Exception as e:
+    except Exception:
         try:
             _write_frame(conn,
                          {
@@ -185,7 +185,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
                              "type": "auth_response",
                              "request_id": None,
                              "result_code": INTERNAL_ERROR_CODE,
-                             "detail": "ok" if code == 0 else "auth_failed",
+                             "detail": "auth_failed",
                          }
                          )
         except Exception:
