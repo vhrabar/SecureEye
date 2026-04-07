@@ -1,0 +1,8 @@
+usr/bin/secureEye
+usr/lib/*/secureEye
+usr/lib/systemd/system/secureeye-authd.service
+usr/share/bash-completion/completions/secureEye
+usr/share/secureEye/logo.png
+etc/secureEye/config.ini
+debian/secureeye-authd.sysusers usr/lib/sysusers.d
+

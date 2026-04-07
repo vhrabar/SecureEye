@@ -1,0 +1,7 @@
+Name: SecureEye
+Default: yes
+Priority: 512
+Auth-Type: Primary
+Auth:
+	[success=end default=ignore]	pam_secureEye.so
+
