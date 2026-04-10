@@ -5,7 +5,7 @@ import socket
 import struct
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
 
 from auth import ExitCode, AuthSession
@@ -156,15 +156,25 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
 
         worker_timeout = max(0.1, (req.deadline_ms - 300) / 1000.0)
 
-        # run auth
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(lambda username: int(AuthSession().run(username)), req.username)
+        # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
+        session = AuthSession()
+        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secureeye-auth")
+        try:
+            future = pool.submit(session.run, req.username)
             try:
-                code = future.result(timeout=worker_timeout)
-            except TimeoutError:
+                code = int(future.result(timeout=worker_timeout))
+            except FutureTimeoutError:
+                session.cancel()
+                future.cancel()
                 code = int(ExitCode.TIMEOUT_REACHED)
-            except Exception:
-                code = INTERNAL_ERROR_CODE
+            except BaseException as exc:
+                # Legacy code paths may call sys.exit(code); never let that kill authd.
+                if isinstance(exc, SystemExit) and isinstance(exc.code, int):
+                    code = int(exc.code)
+                else:
+                    code = INTERNAL_ERROR_CODE
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
 
         # send response
         _write_frame(conn,
@@ -177,7 +187,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
                      }
                      )
     # fail-closed connection
-    except Exception:
+    except BaseException:
         try:
             _write_frame(conn,
                          {
