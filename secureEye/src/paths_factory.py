@@ -1,5 +1,35 @@
-from pathlib import PurePath
-import paths
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path, PurePath
+from types import SimpleNamespace
+
+
+def _load_generated_paths_module():
+    generated = Path(__file__).resolve().with_name("paths.py")
+    if not generated.is_file():
+        return None
+
+    spec = spec_from_file_location("secureeye_generated_paths", generated)
+    if spec is None or spec.loader is None:
+        return None
+
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _default_paths():
+    # Source checkout defaults used when Meson-generated `paths.py` is unavailable.
+    src_dir = Path(__file__).resolve().parent
+    return SimpleNamespace(
+        config_dir=src_dir,
+        dlib_data_dir=src_dir / "dlib-data",
+        user_models_dir=src_dir / "models",
+        log_path=src_dir,
+        data_dir=src_dir,
+    )
+
+
+paths = _load_generated_paths_module() or _default_paths()
 
 models = [
     "shape_predictor_5_face_landmarks.dat",

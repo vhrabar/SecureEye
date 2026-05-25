@@ -1,0 +1,41 @@
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  codeql:
+    name: "CodeQL Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repository
+      - name: "Checkout repository"
+        uses: actions/checkout@v3
+
+      # Initialize CodeQL
+      - name: "Initialize CodeQL"
+        uses: github/codeql-action/init@v2
+        with:
+          languages: cpp, python
+
+      # Install Python dependencies
+      - name: "Set up Python dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Build using Meson + Ninja
+      - name: "Build C++ project"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build
+          meson setup build
+          ninja -C build
+
+      # Run CodeQL analysis
+      - name: "Perform CodeQL Analysis"
+        uses: github/codeql-action/analyze@v2

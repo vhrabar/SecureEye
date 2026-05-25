@@ -1,17 +1,17 @@
 # Show a window with the video stream and testing information
 
+import builtins
 # Import required modules
 import configparser
-import builtins
-import os
-import json
 import sys
 import time
-import dlib
+
 import cv2
 import numpy as np
-import paths_factory
 
+import paths_factory
+from auth.detector_factory import create_detector, DetectorFactoryError
+from auth.model_store import load_user_models, ModelFileNotFound, EmptyModelStore, ModelSchemaError
 from i18n import _
 from recorders.video_capture import VideoCapture
 
@@ -53,29 +53,39 @@ def print_text(line_number, text):
 	cv2.putText(overlay, text, (10, height - 10 - (10 * line_number)), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 255, 0), 0, cv2.LINE_AA)
 
 
-use_cnn = config.getboolean('core', 'use_cnn', fallback=False)
+try:
+	detector_bundle = create_detector(config)
+except FileNotFoundError:
+	print(_("Data files have not been downloaded, please run the following commands:"))
+	print("\n\tcd " + paths_factory.dlib_data_dir_path())
+	print("\tsudo ./install.sh\n")
+	sys.exit(1)
+except DetectorFactoryError as exc:
+	print(exc)
+	sys.exit(1)
 
-if use_cnn:
-	face_detector = dlib.cnn_face_detection_model_v1(
-		paths_factory.mmod_human_face_detector_path()
-	)
-else:
-	face_detector = dlib.get_frontal_face_detector()
-
-pose_predictor = dlib.shape_predictor(paths_factory.shape_predictor_5_face_landmarks_path())
-face_encoder = dlib.face_recognition_model_v1(paths_factory.dlib_face_recognition_resnet_model_v1_path())
-
-encodings = []
+encodings = None
 models = None
 
 try:
 	user = builtins.secureEye_user
-	models = json.load(open(paths_factory.user_model_path(user)))
-
-	for model in models:
-		encodings += model["data"]
-except FileNotFoundError:
+	models, encodings = load_user_models(user)
+except (ModelFileNotFound, EmptyModelStore):
 	pass
+except ModelSchemaError as exc:
+	print(_("Model file has invalid encoding dimensions, skipping recognition: ") + str(exc))
+
+
+def face_bounds(loc):
+	"""Return (left, top, right, bottom) for dlib rectangles and (x, y, w, h) tuples."""
+	if hasattr(loc, "left"):
+		return loc.left(), loc.top(), loc.right(), loc.bottom()
+	x, y, w, h = loc
+	left = int(x)
+	top = int(y)
+	right = int(x + w)
+	bottom = int(y + h)
+	return left, top, right, bottom
 
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
@@ -125,17 +135,16 @@ try:
 		# Fetch the frame height and width
 		height, width = frame.shape[:2]
 
-		# Create a histogram of the image with 8 values
-		hist = cv2.calcHist([frame], [0], None, [8], [0, 256])
+		# Create a histogram of the image with 8 values using NumPy.
+		# Group 256 grayscale values into 8 equally sized bins.
+		hist = np.bincount(frame.ravel(), minlength=256).reshape(8, 32).sum(axis=1)
 		# All values combined for percentage calculation
-		hist_total = int(sum(hist)[0])
+		hist_total = int(hist.sum())
 		# Fill with the overall containing percentage
-		hist_perc = []
+		hist_perc = hist * (100.0 / hist_total)
 
 		# Loop though all values to calculate a percentage and add it to the overlay
-		for index, value in enumerate(hist):
-			value_perc = float(value[0]) / hist_total * 100
-			hist_perc.append(value_perc)
+		for index, value_perc in enumerate(hist_perc):
 
 			# Top left point, 10px margins
 			p1 = (20 + (10 * index), 10)
@@ -166,31 +175,28 @@ try:
 
 			# Get the locations of all faces and their locations
 			# Upsample it once
-			face_locations = face_detector(frame, 1)
+			face_locations = detector_bundle.detector.detect(frame)
 			rec_tm = time.time() - rec_tm
 
 			# Loop though all faces and paint a circle around them
 			for loc in face_locations:
-				if use_cnn:
-					loc = loc.rect
-
 				# By default the circle around the face is red for no match
 				color = (0, 0, 230)
+				left, top, right, bottom = face_bounds(loc)
 
 				# Get the center X and Y from the rectangular points
-				x = int((loc.right() - loc.left()) / 2) + loc.left()
-				y = int((loc.bottom() - loc.top()) / 2) + loc.top()
+				x = int((right - left) / 2) + left
+				y = int((bottom - top) / 2) + top
 
 				# Get the raduis from the with of the square
-				r = (loc.right() - loc.left()) / 2
+				r = (right - left) / 2
 				# Add 20% padding
 				r = int(r + (r * 0.2))
 
 				# If we have models defined for the current user
 				if models:
 					# Get the encoding of the face in the frame
-					face_landmark = pose_predictor(orig_frame, loc)
-					face_encoding = np.array(face_encoder.compute_face_descriptor(orig_frame, face_landmark, 1))
+					face_encoding = np.asarray(detector_bundle.detector.encode(orig_frame, loc), dtype=np.float32)
 
 					# Match this found face against a known face
 					matches = np.linalg.norm(encodings - face_encoding, axis=1)

@@ -17,6 +17,19 @@ py_paths = configure_file(
 )
 
 py_sources = [
+    'authd/__init__.py',
+    'authd/main.py',
+    'authd/protocol.py',
+    'authd/server.py',
+    'auth/__init__.py',
+    'auth/detector_factory.py',
+    'auth/errors.py',
+    'auth/frame_ops.py',
+    'auth/matching.py',
+    'auth/model_store.py',
+    'auth/session.py',
+    'auth/types.py',
+    'auth/ui_bridge.py',
     'cli/__init__.py',
     'cli/add.py',
     'cli/clear.py',
@@ -29,6 +42,11 @@ py_sources = [
     'cli/test.py',
     'cli.py',
     'compare.py',
+    'detectors/__init__.py',
+    'detectors/base.py',
+    'detectors/dlib_detector.py',
+    'detectors/mediapipe_detector.py',
+    'detectors/utils.py',
     'i18n.py',
     'paths_factory.py',
     'recorders/__init__.py',
@@ -45,13 +63,15 @@ py_sources = [
 
 # Include PAM module
 if get_option('install_in_site_packages')
-    pysourcesinstalldir = join_paths(py.get_install_dir(), 'secureEye')
-else  
-    pysourcesinstalldir = get_option('py_sources_dir') != '' ? get_option('py_sources_dir') / 'secureEye' : join_paths(get_option('prefix'), get_option('libdir'), 'secureEye')
+    pysourcesrootdir = py.get_install_dir()
+else
+    pysourcesrootdir = get_option('py_sources_dir') != '' ? get_option('py_sources_dir') : join_paths(get_option('prefix'), get_option('libdir'))
 endif
+pysourcesinstalldir = join_paths(pysourcesrootdir, 'secureEye')
 
 pam_module_conf_data = configuration_data(paths_dict)
 pam_module_conf_data.set('compare_script_path', join_paths(pysourcesinstalldir, 'compare.py'))
+pam_module_conf_data.set('authd_socket_path', get_option('authd_socket_path'))
 pam_module_conf_data.set('config_file_path', config_path)
 subdir('pam')
 if get_option('install_pam_config')
@@ -109,6 +129,30 @@ endif
 install_data('dlib-data/install.sh', 'dlib-data/Readme.md', install_dir: dlibdatadir, install_mode: 'rwxr--r--')
 
 install_man('../SecureEye.1')
+
+systemd = dependency('systemd', required : false)
+systemd_unit_dir = join_paths(get_option('prefix'), 'lib', 'systemd', 'system')
+if systemd.found()
+    systemd_unit_dir = systemd.get_variable(
+        pkgconfig : 'systemdsystemunitdir',
+        default_value : systemd_unit_dir,
+    )
+endif
+
+authd_service = configure_file(
+    input : 'systemd/secureeye-authd.service.in',
+    output : 'secureeye-authd.service',
+    configuration : configuration_data({
+                                           'python_path' : py.full_path(),
+                                           'py_sources_dir' : pysourcesrootdir,
+                                       }),
+)
+install_data(
+    authd_service,
+    install_dir : systemd_unit_dir,
+    install_mode : 'rw-r--r--',
+    install_tag : 'systemd',
+)
 
 # if get_option('fetch_dlib_data')
 #     downloader = find_program('wget')
