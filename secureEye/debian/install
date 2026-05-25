@@ -1,20 +1,4 @@
-src/auth/. lib/security/secureEye/auth
-src/cli/. lib/security/secureEye/cli
-src/detectors/. lib/security/secureEye/detectors
-src/locales/. lib/security/secureEye/locales
-src/recorders/. lib/security/secureEye/recorders
-src/rubberstamps/. lib/security/secureEye/rubberstamps
-src/cli.py lib/security/secureEye
-src/compare.py lib/security/secureEye
-src/i18n.py lib/security/secureEye
-src/logo.png lib/security/secureEye
-src/paths_factory.py lib/security/secureEye
-src/snapshot.py lib/security/secureEye
-
-build/pam_secureEye.so lib/security/secureEye
-
-src/dlib-data/. etc/secureEye/dlib-data
-src/config.ini etc/secureEye
-
-src/autocomplete/. usr/share/bash-completion/completions
-src/pam-config/.  /usr/share/pam-configs
+# Legacy monolithic manifest intentionally left empty.
+# Split manifests:
+#  - debian/libpam-secureeye.install
+#  - debian/secureeye-authd.install

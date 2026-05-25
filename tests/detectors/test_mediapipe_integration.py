@@ -42,3 +42,4 @@ def test_to_rgb_uses_opencv_color_conversion():
     rgb = module.MediaPipeDetector._to_rgb(bgr)
 
     assert tuple(rgb[0, 0]) == (0, 0, 255)
+

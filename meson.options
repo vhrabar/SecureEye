@@ -7,5 +7,6 @@ option('log_path', type: 'string', value: '/var/log/securyEye', description: 'Se
 option('install_in_site_packages', type: 'boolean', value: false, description: 'Install howdy python files in site packages')
 option('py_sources_dir', type: 'string', value: '', description: 'Set the python sources directory')
 option('install_pam_config', type: 'boolean', value: false, description: 'Install pam config file (for Debian/Ubuntu)')
-option('python_path', type: 'string', value: '/usr/bin/python3', description: 'Set the path to the python executable')
+option('python_path', type : 'string', value : 'python3', description : 'Set the path to the python executable')
+option('authd_socket_path', type: 'string', value: '/run/secureeye/authd.sock', description: 'Set the authd UNIX socket path for PAM IPC')
 option('with_polkit', type: 'boolean', value: false, description: 'Install polkit policy config file')

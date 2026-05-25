@@ -4,19 +4,36 @@ DH_VERBOSE = 1
 DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/default.mk
 
+BUILDDIR = obj-$(DEB_HOST_GNU_TYPE)
+SRCDIR = ..
+
 %:
 	dh $@
 
-build:
-	# Create build dir
-	meson setup -Dinih:with_INIReader=true build src/pam
-	# Compile shared object
-	ninja -C build
+override_dh_clean:
+	dh_clean -X__pycache__ -X.pyc
 
-clean:
-	# Delete mason build directory
-	rm -rf ./build
-	# Force remove temp debian build directory
-	rm -rf ./debian/secureEye
-	# Make sure subprojects get pulled locally
-	meson subprojects download --sourcedir src/pam
+override_dh_auto_configure:
+	meson setup --wipe $(BUILDDIR) $(SRCDIR) \
+		--wrap-mode=nodownload \
+		--buildtype=plain \
+		--prefix=/usr \
+		--sysconfdir=/etc \
+		--localstatedir=/var \
+		--libdir=lib/$(DEB_HOST_MULTIARCH) \
+		-Dpython.bytecompile=-1 \
+		-Dinih:with_INIReader=true \
+		-Dinstall_pam_config=false \
+		-Dconfig_dir=/etc/secureEye \
+		-Duser_models_dir=/etc/secureEye/models
+
+override_dh_auto_build:
+	meson compile -C $(BUILDDIR)
+
+override_dh_auto_install:
+	DESTDIR=$(CURDIR)/debian/tmp meson install -C $(BUILDDIR)
+
+override_dh_install:
+	rm -rf debian/libpam-secureeye debian/secureeye-authd debian/secure-eye
+	dh_install
+	dh_missing --list-missing

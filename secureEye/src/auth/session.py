@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import _thread as thread
 import configparser
+import cv2
+import numpy as np
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
-
-import cv2
-import numpy as np
 
 import paths_factory
 import snapshot
@@ -32,6 +32,19 @@ class AuthSession:
         self.config_path = config_path or paths_factory.config_file_path()
         self.ui = ui_bridge
         self.timings: dict[str, float] = {"st": time.time()}
+        self._cancel_event = threading.Event()
+        self._state_lock = threading.Lock()
+        self._video_capture: VideoCapture | None = None
+
+    def cancel(self) -> None:
+        """Request cooperative stop and release camera resources as soon as possible."""
+        self._cancel_event.set()
+        with self._state_lock:
+            if self._video_capture is not None:
+                try:
+                    self._video_capture.release()
+                except Exception:
+                    pass
 
     def run(self, user: str) -> int:
         if not user:
@@ -73,6 +86,8 @@ class AuthSession:
 
         self.timings["ic"] = time.time()
         video_capture = VideoCapture(config)
+        with self._state_lock:
+            self._video_capture = video_capture
         self.timings["ic"] = time.time() - self.timings["ic"]
 
         exposure = config.getint("video", "exposure", fallback=-1)
@@ -90,76 +105,88 @@ class AuthSession:
         dark_running_total = 0.0
         self.timings["fr"] = time.time()
 
-        while True:
-            stats.frames += 1
-            self._send_ui("S", self._ui_subtext(stats))
+        try:
+            while True:
+                if self._cancel_event.is_set():
+                    return int(ExitCode.TIMEOUT_REACHED)
 
-            if time.time() - self.timings["fr"] > timeout:
-                if save_failed:
-                    self._make_snapshot(_("FAILED"), snapframes, stats)
+                stats.frames += 1
+                self._send_ui("S", self._ui_subtext(stats))
 
-                if stats.dark_tries == stats.valid_frames:
-                    print(_("All frames were too dark, please check dark_threshold in config"))
-                    avg_darkness = dark_running_total / max(1, stats.valid_frames)
-                    print(_("Average darkness: {avg}, Threshold: {threshold}").format(
-                        avg=str(avg_darkness), threshold=str(dark_threshold)
-                    ))
-                    return int(ExitCode.TOO_DARK)
-                return int(ExitCode.TIMEOUT_REACHED)
+                if time.time() - self.timings["fr"] > timeout:
+                    if save_failed:
+                        self._make_snapshot(_("FAILED"), snapframes, stats)
 
-            frame, gsframe = video_capture.read_frame()
-            gsframe = clahe.apply(gsframe)
+                    if stats.dark_tries == stats.valid_frames:
+                        print(_("All frames were too dark, please check dark_threshold in config"))
+                        avg_darkness = dark_running_total / max(1, stats.valid_frames)
+                        print(_("Average darkness: {avg}, Threshold: {threshold}").format(
+                            avg=str(avg_darkness), threshold=str(dark_threshold)
+                        ))
+                        return int(ExitCode.TOO_DARK)
+                    return int(ExitCode.TIMEOUT_REACHED)
 
-            if (save_failed or save_successful) and len(snapframes) < 3:
-                snapframes.append(frame)
+                frame, gsframe = video_capture.read_frame()
+                gsframe = clahe.apply(gsframe)
 
-            darkness, hist_total = darkness_percent(gsframe)
-            if hist_total == 0 or darkness == 100:
-                stats.black_tries += 1
-                continue
+                if (save_failed or save_successful) and len(snapframes) < 3:
+                    snapframes.append(frame)
 
-            dark_running_total += darkness
-            stats.valid_frames += 1
-
-            if darkness > dark_threshold:
-                stats.dark_tries += 1
-                continue
-
-            frame, gsframe = maybe_scale(frame, gsframe, scaling_factor)
-            frame, gsframe = apply_rotation_mode(frame, gsframe, rotate, stats.frames)
-
-            for face_location in detector_bundle.detector.detect(gsframe):
-                face_encoding = np.asarray(
-                    detector_bundle.detector.encode(frame, face_location),
-                    dtype=np.float32,
-                )
-                match_index, match = best_match(encodings, face_encoding)
-                stats.lowest_certainty = min(stats.lowest_certainty, match)
-
-                if not is_match(match, video_certainty):
+                darkness, hist_total = darkness_percent(gsframe)
+                if hist_total == 0 or darkness == 100:
+                    stats.black_tries += 1
                     continue
 
-                self.timings["tt"] = time.time() - self.timings["st"]
-                self.timings["fl"] = time.time() - self.timings["fr"]
+                dark_running_total += darkness
+                stats.valid_frames += 1
 
-                if end_report:
-                    self._print_end_report(models, match_index, match, stats, video_capture, frame, height)
+                if darkness > dark_threshold:
+                    stats.dark_tries += 1
+                    continue
 
-                if save_successful:
-                    self._make_snapshot(_("SUCCESSFUL"), snapframes, stats)
+                frame, gsframe = maybe_scale(frame, gsframe, scaling_factor)
+                frame, gsframe = apply_rotation_mode(frame, gsframe, rotate, stats.frames)
 
-                stamp_code = self._run_rubberstamps_if_enabled(config, detector_bundle, video_capture, clahe)
-                if stamp_code is not None:
-                    return stamp_code
+                for face_location in detector_bundle.detector.detect(gsframe):
+                    face_encoding = np.asarray(
+                        detector_bundle.detector.encode(frame, face_location),
+                        dtype=np.float32,
+                    )
+                    match_index, match = best_match(encodings, face_encoding)
+                    stats.lowest_certainty = min(stats.lowest_certainty, match)
 
-                return int(ExitCode.SUCCESS)
+                    if not is_match(match, video_certainty):
+                        continue
 
-            if exposure != -1:
-                # Some devices apply manual exposure only after first reads; set it each frame for reliability.
-                video_capture.internal.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)
-                video_capture.internal.set(cv2.CAP_PROP_EXPOSURE, float(exposure))
+                    self.timings["tt"] = time.time() - self.timings["st"]
+                    self.timings["fl"] = time.time() - self.timings["fr"]
 
-        return int(ExitCode.ABORT)
+                    if end_report:
+                        self._print_end_report(models, match_index, match, stats, video_capture, frame, height)
+
+                    if save_successful:
+                        self._make_snapshot(_("SUCCESSFUL"), snapframes, stats)
+
+                    stamp_code = self._run_rubberstamps_if_enabled(config, detector_bundle, video_capture, clahe)
+                    if stamp_code is not None:
+                        return stamp_code
+
+                    return int(ExitCode.SUCCESS)
+
+                if exposure != -1:
+                    # Some devices apply manual exposure only after first reads; set it each frame for reliability.
+                    video_capture.internal.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)
+                    video_capture.internal.set(cv2.CAP_PROP_EXPOSURE, float(exposure))
+
+            return int(ExitCode.ABORT)
+        finally:
+            with self._state_lock:
+                if self._video_capture is not None:
+                    try:
+                        self._video_capture.release()
+                    except Exception:
+                        pass
+                    self._video_capture = None
 
     def _init_detector_async(self, config):
         holder: dict[str, Any] = {"bundle": None, "error": None}

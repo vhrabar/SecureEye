@@ -1,12 +1,15 @@
+#!/usr/bin/python3
+
 # CLI directly called by running the secureEye command
 
-# Import required modules
-import sys
-import os
-import pwd
-import getpass
 import argparse
 import builtins
+import getpass
+import importlib
+import os
+import pwd
+# Import required modules
+import sys
 
 from i18n import _
 
@@ -95,24 +98,26 @@ if args.user == "root":
 	print(_("Can't run secureEye commands as root, please run this command with the --user flag"))
 	sys.exit(1)
 
-# Execute the right command
-if args.command == "add":
-	import cli.add
-elif args.command == "clear":
-	import cli.clear
-elif args.command == "config":
-	import cli.config
-elif args.command == "disable":
-	import cli.disable
-elif args.command == "list":
-	import cli.list
-elif args.command == "remove":
-	import cli.remove
-elif args.command == "set":
-	import cli.set
-elif args.command == "snapshot":
-	import cli.snap
-elif args.command == "test":
-	import cli.test
-else:
+# Execute the selected command module.
+command_modules = {
+	"add": "cli.add",
+	"clear": "cli.clear",
+	"config": "cli.config",
+	"disable": "cli.disable",
+	"list": "cli.list",
+	"remove": "cli.remove",
+	"set": "cli.set",
+	"snapshot": "cli.snap",
+	"test": "cli.test",
+}
+
+if args.command == "version":
 	print("SecureEye 0.0.1")
+	sys.exit(0)
+
+module_name = command_modules.get(args.command)
+if module_name is None:
+	print(_("Unknown command"))
+	sys.exit(1)
+
+importlib.import_module(module_name)

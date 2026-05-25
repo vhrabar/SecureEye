@@ -14,7 +14,7 @@ class AuthUiBridge:
 
     def start(self) -> None:
         """No-op placeholder for future GUI startup."""
-        raise NotImplemented
+        return None
 
     def send(self, kind: str, message: str) -> None:
         """Send a message to the UI placeholder."""
@@ -23,4 +23,4 @@ class AuthUiBridge:
 
     def close(self) -> None:
         """No-op placeholder for future GUI shutdown."""
-        raise NotImplemented
+        return None
