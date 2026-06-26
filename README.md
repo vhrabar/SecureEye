@@ -6,7 +6,8 @@ Modern face recognition authentication for Linux using PAM.
 
 ## Overview
 
-EyeAuth is a clean, modern reimplementation of facial authentication for Linux systems. It enables users to authenticate via face recognition while maintaining a modular, secure, and maintainable architecture.
+SecureEys is a clean, modern reimplementation of facial authentication for Linux systems. It enables users to
+authenticate via face recognition while maintaining a modular, secure, and maintainable architecture.
 
 This project is inspired by the Howdy project but is being redesigned with updated technologies, improved structure, and long-term maintainability in mind.
 
@@ -102,7 +103,7 @@ secureEye [-U user] [-y] command [argument]
 | `add`      | Add a new face model for a user             |
 | `clear`    | Remove all face models for a user           |
 | `config`   | Open the config file in your default editor |
-| `disable`  | Disable or enable howdy                     |
+| `disable`  | Disable or enable SecureEye                 |
 | `list`     | List all saved face models for a user       |
 | `remove`   | Remove a specific model for a user          |
 | `snapshot` | Take a snapshot of your camera input        |
