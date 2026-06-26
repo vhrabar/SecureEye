@@ -121,10 +121,7 @@ install_data(
     rename: 'secureEye',
 )
 
-fs = import('fs')
-if not fs.exists(config_path)
-    install_data('config.ini', install_dir: confdir, install_mode: 'rwxr--r--', install_tag: 'config')
-endif
+install_data('config.ini', install_dir: confdir, install_mode: 'rwxr--r--', install_tag: 'config')
 
 install_data('dlib-data/install.sh', 'dlib-data/Readme.md', install_dir: dlibdatadir, install_mode: 'rwxr--r--')
 
@@ -198,7 +195,13 @@ install_data(
 # endif
 
 cli_path = join_paths(pysourcesinstalldir, 'cli.py')
-conf_data = configuration_data({ 'script_path': cli_path, 'python_path': py.full_path() })
+authd_python = get_option('prefix') / 'lib' / 'secureeye-authd' / 'venv' / 'bin' / 'python3'
+conf_data = configuration_data({
+    'script_path': cli_path,
+    'python_path': py.full_path(),
+    'authd_python': authd_python,
+    'py_sources_dir': pysourcesrootdir,
+})
 
 bin_name = 'secureEye'
 bin = configure_file(
