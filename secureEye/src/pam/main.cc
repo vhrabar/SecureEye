@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <algorithm>
 #include <condition_variable>
 #include <cstring>
 #include <fstream>
@@ -262,9 +263,10 @@ auto read_authd_response_code(const std::string &payload,
   }
 }
 
-auto authd_authenticate(pam_handle_t *pamh, const std::string &username) -> int {
+auto authd_authenticate(pam_handle_t *pamh, const std::string &username,
+                        int auth_timeout_ms) -> int {
   const auto deadline =
-      std::chrono::steady_clock::now() + std::chrono::milliseconds(AUTH_TIMEOUT_MS);
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(auth_timeout_ms);
   const auto request_id = make_request_id();
   const auto service = get_pam_item_str(pamh, PAM_SERVICE);
   const auto tty = get_pam_item_str(pamh, PAM_TTY);
@@ -277,7 +279,7 @@ auto authd_authenticate(pam_handle_t *pamh, const std::string &username) -> int 
                        "\",\"tty\":\"" + json_escape(tty) +
                        "\",\"rhost\":\"" + json_escape(rhost) +
                        "\",\"deadline_ms\":" +
-                       std::to_string(AUTH_TIMEOUT_MS) + "}";
+                       std::to_string(auth_timeout_ms) + "}";
 
   if (payload.size() > MAX_IPC_PAYLOAD) {
     return AUTHD_INTERNAL_ERROR;
@@ -535,6 +537,14 @@ auto identify(pam_handle_t *pamh, int flags, int argc, const char **argv,
     }
   }
 
+  // Keep PAM transport deadline aligned with configured camera loop timeout.
+  const auto video_timeout_s = config.GetInteger("video", "timeout", 4);
+  const auto configured_timeout_ms =
+      video_timeout_s > 0 ? static_cast<long>(video_timeout_s) * 1000L
+                          : static_cast<long>(AUTH_TIMEOUT_MS);
+  const auto auth_timeout_ms = static_cast<int>(
+      std::clamp(configured_timeout_ms + 1500L, 1000L, 30000L));
+
   // NOTE: We should replace mutex and condition_variable by atomic wait, but
   // it's too recent (C++20)
   std::mutex mutx;
@@ -543,7 +553,7 @@ auto identify(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
   // This task sends auth request to authd and waits for response.
   optional_task<int> auth_task([&] {
-    int status = authd_authenticate(pamh, username);
+    int status = authd_authenticate(pamh, username, auth_timeout_ms);
     {
       std::unique_lock<std::mutex> lock(mutx);
       if (confirmation_type == ConfirmationType::Unset) {
