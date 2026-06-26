@@ -5,10 +5,11 @@ DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/default.mk
 
 BUILDDIR = obj-$(DEB_HOST_GNU_TYPE)
-SRCDIR = ..
+SRCDIR := $(shell test -f $(CURDIR)/meson.options && echo $(CURDIR) || echo $(CURDIR)/..)
 AUTHD_LIBDIR = $(CURDIR)/debian/tmp/usr/lib/secureeye-authd
 AUTHD_WHEELS = $(AUTHD_LIBDIR)/wheels
-AUTHD_REQS = $(CURDIR)/../requirements.txt
+AUTHD_REQS := $(shell test -f $(CURDIR)/requirements-vendor.txt && echo $(CURDIR)/requirements-vendor.txt || echo $(CURDIR)/../requirements-vendor.txt)
+VENDORED_WHEELS = $(CURDIR)/debian/wheels
 
 %:
 	dh $@
@@ -37,8 +38,15 @@ override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp meson install -C $(BUILDDIR)
 	mkdir -p $(AUTHD_WHEELS)
 	install -m 0644 $(AUTHD_REQS) $(AUTHD_LIBDIR)/requirements.txt
-	python3 -m pip wheel --no-cache-dir \
-		--wheel-dir $(AUTHD_WHEELS) -r $(AUTHD_REQS)
+	# Prefer pre-vendored wheels (offline, e.g. Launchpad); otherwise download
+	# them with pip for a local network build.
+	if ls $(VENDORED_WHEELS)/*.whl >/dev/null 2>&1; then \
+		echo "Using pre-vendored wheels from $(VENDORED_WHEELS)"; \
+		cp $(VENDORED_WHEELS)/*.whl $(AUTHD_WHEELS)/; \
+	else \
+		echo "No vendored wheels found; downloading with pip (needs network)"; \
+		python3 -m pip wheel --no-cache-dir --no-deps --wheel-dir $(AUTHD_WHEELS) -r $(AUTHD_REQS); \
+	fi
 
 override_dh_install:
 	rm -rf debian/libpam-secureeye debian/secureeye-authd debian/secure-eye

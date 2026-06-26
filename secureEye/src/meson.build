@@ -8,7 +8,6 @@ py_conf = configuration_data(paths_dict)
 py_conf.set('data_dir', datadir)
 
 py = import('python').find_installation(paths_dict.get('python_path'))
-py.dependency()
 
 py_paths = configure_file(
     input: 'paths.py.in',
