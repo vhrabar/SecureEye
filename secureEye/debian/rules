@@ -6,6 +6,9 @@ include /usr/share/dpkg/default.mk
 
 BUILDDIR = obj-$(DEB_HOST_GNU_TYPE)
 SRCDIR = ..
+AUTHD_LIBDIR = $(CURDIR)/debian/tmp/usr/lib/secureeye-authd
+AUTHD_WHEELS = $(AUTHD_LIBDIR)/wheels
+AUTHD_REQS = $(CURDIR)/../requirements.txt
 
 %:
 	dh $@
@@ -32,8 +35,21 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp meson install -C $(BUILDDIR)
+	mkdir -p $(AUTHD_WHEELS)
+	install -m 0644 $(AUTHD_REQS) $(AUTHD_LIBDIR)/requirements.txt
+	python3 -m pip wheel --no-cache-dir \
+		--wheel-dir $(AUTHD_WHEELS) -r $(AUTHD_REQS)
 
 override_dh_install:
 	rm -rf debian/libpam-secureeye debian/secureeye-authd debian/secure-eye
 	dh_install
 	dh_missing --list-missing
+
+override_dh_dwz:
+	# Bundled venv contains prebuilt wheel ELF objects that dh_dwz cannot process reliably.
+	dh_dwz -a -Nsecureeye-authd
+
+override_dh_strip:
+	# Skip strip/dbgsym for secureeye-authd bundled venv ELF files from third-party wheels.
+	dh_strip -a -Nsecureeye-authd
+

@@ -11,6 +11,7 @@ Build-Depends:
  ninja-build,
  pkg-config,
  python3,
+ python3-pip,
  libpam0g-dev,
  libevdev-dev,
  libinih-dev
@@ -31,9 +32,6 @@ Depends:
  ${misc:Depends},
  python3,
  python3-venv,
- python3-pip,
- python3-numpy,
- python3-opencv,
  v4l-utils
 Recommends: libpam-secureeye
 Description: SecureEye authentication daemon and Python runtime components

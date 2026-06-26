@@ -6,11 +6,19 @@ After=network.target
 Type=simple
 User=secureeye
 Group=secureeye
+SupplementaryGroups=video
 RuntimeDirectory=secureeye
 RuntimeDirectoryMode=0755
+StateDirectory=secureeye
+CacheDirectory=secureeye
 Environment=SECUREEYE_AUTHD_SOCKET=/run/secureeye/authd.sock
 Environment=PYTHONPATH=@py_sources_dir@/secureEye
-ExecStart=/var/lib/secureeye-authd/venv/bin/python3 @py_sources_dir@/secureEye/authd/main.py
+Environment=HOME=/var/lib/secureeye
+Environment=XDG_RUNTIME_DIR=/run/secureeye
+Environment=XDG_CONFIG_HOME=/var/lib/secureeye/.config
+Environment=XDG_CACHE_HOME=/var/cache/secureeye
+Environment=MPLCONFIGDIR=/var/cache/secureeye/matplotlib
+ExecStart=/usr/lib/secureeye-authd/venv/bin/python3 @py_sources_dir@/secureEye/authd/main.py
 Restart=on-failure
 RestartSec=1
 
