@@ -11,6 +11,14 @@ AUTHD_WHEELS = $(AUTHD_LIBDIR)/wheels
 AUTHD_REQS := $(shell test -f $(CURDIR)/requirements-vendor.txt && echo $(CURDIR)/requirements-vendor.txt || echo $(CURDIR)/../requirements-vendor.txt)
 VENDORED_WHEELS = $(CURDIR)/debian/wheels
 
+# amd64(v3) -> mediapipe (default)
+# aarch64 -> dlib (temp.)
+ifeq ($(DEB_HOST_ARCH),amd64)
+  BACKEND_DEPENDS =
+else
+  BACKEND_DEPENDS = python3-dlib
+endif
+
 %:
 	dh $@
 
@@ -37,15 +45,32 @@ override_dh_auto_build:
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp meson install -C $(BUILDDIR)
 	mkdir -p $(AUTHD_WHEELS)
+ifeq ($(DEB_HOST_ARCH),amd64)
 	install -m 0644 $(AUTHD_REQS) $(AUTHD_LIBDIR)/requirements.txt
-	# Prefer pre-vendored wheels (offline, e.g. Launchpad); otherwise download
-	# them with pip for a local network build.
+else
+	# No mediapipe wheel for this arch: drop it from the venv requirements and
+	# default the shipped config to the dlib backend.
+	grep -iv '^[[:space:]]*mediapipe' $(AUTHD_REQS) > $(AUTHD_LIBDIR)/requirements.txt
+	chmod 0644 $(AUTHD_LIBDIR)/requirements.txt
+	sed -i 's/^detector_backend = mediapipe/detector_backend = dlib/' \
+		$(CURDIR)/debian/tmp/etc/secureEye/config.ini
+endif
+	# Place vendored wheels (offline, e.g. Launchpad); otherwise download them
+	# with pip for a local network build. The amd64-only mediapipe wheel is
+	# skipped on other architectures.
 	if ls $(VENDORED_WHEELS)/*.whl >/dev/null 2>&1; then \
 		echo "Using pre-vendored wheels from $(VENDORED_WHEELS)"; \
-		cp $(VENDORED_WHEELS)/*.whl $(AUTHD_WHEELS)/; \
+		for whl in $(VENDORED_WHEELS)/*.whl; do \
+			base=$$(basename "$$whl"); \
+			if [ "$(DEB_HOST_ARCH)" != "amd64" ] && [ "$${base#mediapipe-}" != "$$base" ]; then \
+				echo "Skipping $$base on $(DEB_HOST_ARCH)"; \
+				continue; \
+			fi; \
+			cp "$$whl" $(AUTHD_WHEELS)/; \
+		done; \
 	else \
 		echo "No vendored wheels found; downloading with pip (needs network)"; \
-		python3 -m pip wheel --no-cache-dir --no-deps --wheel-dir $(AUTHD_WHEELS) -r $(AUTHD_REQS); \
+		python3 -m pip wheel --no-cache-dir --no-deps --wheel-dir $(AUTHD_WHEELS) -r $(AUTHD_LIBDIR)/requirements.txt; \
 	fi
 
 override_dh_install:
@@ -60,4 +85,9 @@ override_dh_dwz:
 override_dh_strip:
 	# Skip strip/dbgsym for secureeye-authd bundled venv ELF files from third-party wheels.
 	dh_strip -a -Nsecureeye-authd
+
+override_dh_gencontrol:
+	# Resolve ${secureeye:Backend}: python3-dlib off amd64, empty on amd64.
+	dh_gencontrol -psecureeye-authd -- -V'secureeye:Backend=$(BACKEND_DEPENDS)'
+	dh_gencontrol -Nsecureeye-authd
 

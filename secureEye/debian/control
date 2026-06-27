@@ -30,6 +30,7 @@ Section: admin
 Architecture: any
 Depends:
  ${misc:Depends},
+ ${secureeye:Backend},
  python3,
  python3-venv,
  python3-numpy,
