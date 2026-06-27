@@ -107,6 +107,11 @@ ENV/
 /secureEye/src/snapshots
 
 # build files
+debs/
+*.deb
+*.ddeb
+*.buildinfo
+*.changes
 debian/howdy.substvars
 debian/files
 debian/debhelper-build-stamp
