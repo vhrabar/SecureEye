@@ -64,9 +64,9 @@ meson compile -C build
 > packages. Meson's default prefix is `/usr/local`, and `/usr/local/lib/...`
 > shadows the packaged `/usr/lib/...` systemd unit (and `/usr/local/bin` shadows
 > `/usr/bin`), which breaks the daemon and CLI. A bare `meson install` also does
-> **not** create the recognition virtualenv — that is built by the
-> `secureeye-authd` package at install time — so the daemon will not start.
-> For a working system install, build and install the Debian packages below.
+> **not** create the recognition virtualenv, that is built by the
+> `secureeye-authd` package at install time, so the daemon will not start.
+> For a working system install, build, and install the Debian packages below.
 
 ### Debian / Ubuntu & derivatives
 
@@ -90,7 +90,7 @@ wheels (this takes a short while) and enables the `secureeye-authd.service`.
 ### PPA
 
 ```bash
-sudo add-apt-repository ppa:vhrabar/secure-eye
+sudo add-apt-repository ppa:vhrabar/tools
 sudo apt update && sudo apt install secure-eye
 ```
 
