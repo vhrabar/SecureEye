@@ -6,7 +6,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-def best_match(known_encodings: NDArray[np.float32], face_encoding: NDArray[np.float32]) -> tuple[int, float]:
+def best_match(
+    known_encodings: NDArray[np.float32], face_encoding: NDArray[np.float32]
+) -> tuple[int, float]:
     """Return (best_index, distance) for the nearest known encoding."""
     matches = np.linalg.norm(known_encodings - face_encoding, axis=1)
     match_index = int(np.argmin(matches))

@@ -1,6 +1,7 @@
 # Show a window with the video stream and testing information
 
 import builtins
+
 # Import required modules
 import configparser
 import sys
@@ -20,8 +21,12 @@ config = configparser.ConfigParser()
 config.read(paths_factory.config_file_path())
 
 if config.get("video", "recording_plugin", fallback="opencv") != "opencv":
-	print(_("SecureEye has been configured to use a recorder which doesn't support the test command yet, aborting"))
-	sys.exit(12)
+    print(
+        _(
+            "SecureEye has been configured to use a recorder which doesn't support the test command yet, aborting"
+        )
+    )
+    sys.exit(12)
 
 video_capture = VideoCapture(config)
 
@@ -40,52 +45,62 @@ Click on the image to enable or disable slow mode
 
 
 def mouse(event, x, y, flags, param):
-	"""Handle mouse events"""
-	global slow_mode
+    """Handle mouse events"""
+    global slow_mode
 
-	# Toggle slowmode on click
-	if event == cv2.EVENT_LBUTTONDOWN:
-		slow_mode = not slow_mode
+    # Toggle slowmode on click
+    if event == cv2.EVENT_LBUTTONDOWN:
+        slow_mode = not slow_mode
 
 
 def print_text(line_number, text):
-	"""Print the status text by line number"""
-	cv2.putText(overlay, text, (10, height - 10 - (10 * line_number)), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 255, 0), 0, cv2.LINE_AA)
+    """Print the status text by line number"""
+    cv2.putText(
+        overlay,
+        text,
+        (10, height - 10 - (10 * line_number)),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.3,
+        (0, 255, 0),
+        0,
+        cv2.LINE_AA,
+    )
 
 
 try:
-	detector_bundle = create_detector(config)
+    detector_bundle = create_detector(config)
 except FileNotFoundError:
-	print(_("Data files have not been downloaded, please run the following commands:"))
-	print("\n\tcd " + paths_factory.dlib_data_dir_path())
-	print("\tsudo ./install.sh\n")
-	sys.exit(1)
+    print(_("Data files have not been downloaded, please run the following commands:"))
+    print("\n\tcd " + paths_factory.dlib_data_dir_path())
+    print("\tsudo ./install.sh\n")
+    sys.exit(1)
 except DetectorFactoryError as exc:
-	print(exc)
-	sys.exit(1)
+    print(exc)
+    sys.exit(1)
 
 encodings = None
 models = None
 
 try:
-	user = builtins.secureEye_user
-	models, encodings = load_user_models(user)
+    user = builtins.secureEye_user
+    models, encodings = load_user_models(user)
 except (ModelFileNotFound, EmptyModelStore):
-	pass
+    pass
 except ModelSchemaError as exc:
-	print(_("Model file has invalid encoding dimensions, skipping recognition: ") + str(exc))
+    print(_("Model file has invalid encoding dimensions, skipping recognition: ") + str(exc))
 
 
 def face_bounds(loc):
-	"""Return (left, top, right, bottom) for dlib rectangles and (x, y, w, h) tuples."""
-	if hasattr(loc, "left"):
-		return loc.left(), loc.top(), loc.right(), loc.bottom()
-	x, y, w, h = loc
-	left = int(x)
-	top = int(y)
-	right = int(x + w)
-	bottom = int(y + h)
-	return left, top, right, bottom
+    """Return (left, top, right, bottom) for dlib rectangles and (x, y, w, h) tuples."""
+    if hasattr(loc, "left"):
+        return loc.left(), loc.top(), loc.right(), loc.bottom()
+    x, y, w, h = loc
+    left = int(x)
+    top = int(y)
+    right = int(x + w)
+    bottom = int(y + h)
+    return left, top, right, bottom
+
 
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
@@ -108,149 +123,198 @@ rec_tm = 0
 
 # Wrap everything in an keyboard interrupt handler
 try:
-	while True:
-		frame_tm = time.time()
+    while True:
+        frame_tm = time.time()
 
-		# Increment the frames
-		total_frames += 1
-		sec_frames += 1
+        # Increment the frames
+        total_frames += 1
+        sec_frames += 1
 
-		# Id we've entered a new second
-		if sec != int(frame_tm):
-			# Set the last seconds FPS
-			fps = sec_frames
+        # Id we've entered a new second
+        if sec != int(frame_tm):
+            # Set the last seconds FPS
+            fps = sec_frames
 
-			# Set the new second and reset the counter
-			sec = int(frame_tm)
-			sec_frames = 0
+            # Set the new second and reset the counter
+            sec = int(frame_tm)
+            sec_frames = 0
 
-		# Grab a single frame of video
-		orig_frame, frame = video_capture.read_frame()
+        # Grab a single frame of video
+        orig_frame, frame = video_capture.read_frame()
 
-		frame = clahe.apply(frame)
-		# Make a frame to put overlays in
-		overlay = frame.copy()
-		overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
+        frame = clahe.apply(frame)
+        # Make a frame to put overlays in
+        overlay = frame.copy()
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
 
-		# Fetch the frame height and width
-		height, width = frame.shape[:2]
+        # Fetch the frame height and width
+        height, width = frame.shape[:2]
 
-		# Create a histogram of the image with 8 values using NumPy.
-		# Group 256 grayscale values into 8 equally sized bins.
-		hist = np.bincount(frame.ravel(), minlength=256).reshape(8, 32).sum(axis=1)
-		# All values combined for percentage calculation
-		hist_total = int(hist.sum())
-		# Fill with the overall containing percentage
-		hist_perc = hist * (100.0 / hist_total)
+        # Create a histogram of the image with 8 values using NumPy.
+        # Group 256 grayscale values into 8 equally sized bins.
+        hist = np.bincount(frame.ravel(), minlength=256).reshape(8, 32).sum(axis=1)
+        # All values combined for percentage calculation
+        hist_total = int(hist.sum())
+        # Fill with the overall containing percentage
+        hist_perc = hist * (100.0 / hist_total)
 
-		# Loop though all values to calculate a percentage and add it to the overlay
-		for index, value_perc in enumerate(hist_perc):
+        # Loop though all values to calculate a percentage and add it to the overlay
+        for index, value_perc in enumerate(hist_perc):
 
-			# Top left point, 10px margins
-			p1 = (20 + (10 * index), 10)
-			# Bottom right point makes the bar 10px thick, with an height of half the percentage
-			p2 = (10 + (10 * index), int(value_perc / 2 + 10))
-			# Draw the bar in green
-			cv2.rectangle(overlay, p1, p2, (0, 200, 0), thickness=cv2.FILLED)
+            # Top left point, 10px margins
+            p1 = (20 + (10 * index), 10)
+            # Bottom right point makes the bar 10px thick, with an height of half the percentage
+            p2 = (10 + (10 * index), int(value_perc / 2 + 10))
+            # Draw the bar in green
+            cv2.rectangle(overlay, p1, p2, (0, 200, 0), thickness=cv2.FILLED)
 
-		# Print the statis in the bottom left
-		print_text(0, _("RESOLUTION: %dx%d") % (height, width))
-		print_text(1, _("FPS: %d") % (fps, ))
-		print_text(2, _("FRAMES: %d") % (total_frames, ))
-		print_text(3, _("RECOGNITION: %dms") % (round(rec_tm * 1000), ))
+        # Print the statis in the bottom left
+        print_text(0, _("RESOLUTION: %dx%d") % (height, width))
+        print_text(1, _("FPS: %d") % (fps,))
+        print_text(2, _("FRAMES: %d") % (total_frames,))
+        print_text(3, _("RECOGNITION: %dms") % (round(rec_tm * 1000),))
 
-		# Show that slow mode is on, if it's on
-		if slow_mode:
-			cv2.putText(overlay, _("SLOW MODE"), (width - 66, height - 10), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 0, 255), 0, cv2.LINE_AA)
+        # Show that slow mode is on, if it's on
+        if slow_mode:
+            cv2.putText(
+                overlay,
+                _("SLOW MODE"),
+                (width - 66, height - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.3,
+                (0, 0, 255),
+                0,
+                cv2.LINE_AA,
+            )
 
-		# Ignore dark frames
-		if hist_perc[0] > dark_threshold:
-			# Show that this is an ignored frame in the top right
-			cv2.putText(overlay, _("DARK FRAME"), (width - 68, 16), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 0, 255), 0, cv2.LINE_AA)
-		else:
-			# Show that this is an active frame
-			cv2.putText(overlay, _("SCAN FRAME"), (width - 68, 16), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 255, 0), 0, cv2.LINE_AA)
+        # Ignore dark frames
+        if hist_perc[0] > dark_threshold:
+            # Show that this is an ignored frame in the top right
+            cv2.putText(
+                overlay,
+                _("DARK FRAME"),
+                (width - 68, 16),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.3,
+                (0, 0, 255),
+                0,
+                cv2.LINE_AA,
+            )
+        else:
+            # Show that this is an active frame
+            cv2.putText(
+                overlay,
+                _("SCAN FRAME"),
+                (width - 68, 16),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.3,
+                (0, 255, 0),
+                0,
+                cv2.LINE_AA,
+            )
 
-			rec_tm = time.time()
+            rec_tm = time.time()
 
-			# Get the locations of all faces and their locations
-			# Upsample it once
-			face_locations = detector_bundle.detector.detect(frame)
-			rec_tm = time.time() - rec_tm
+            # Get the locations of all faces and their locations
+            # Upsample it once
+            face_locations = detector_bundle.detector.detect(frame)
+            rec_tm = time.time() - rec_tm
 
-			# Loop though all faces and paint a circle around them
-			for loc in face_locations:
-				# By default the circle around the face is red for no match
-				color = (0, 0, 230)
-				left, top, right, bottom = face_bounds(loc)
+            # Loop though all faces and paint a circle around them
+            for loc in face_locations:
+                # By default the circle around the face is red for no match
+                color = (0, 0, 230)
+                left, top, right, bottom = face_bounds(loc)
 
-				# Get the center X and Y from the rectangular points
-				x = int((right - left) / 2) + left
-				y = int((bottom - top) / 2) + top
+                # Get the center X and Y from the rectangular points
+                x = int((right - left) / 2) + left
+                y = int((bottom - top) / 2) + top
 
-				# Get the raduis from the with of the square
-				r = (right - left) / 2
-				# Add 20% padding
-				r = int(r + (r * 0.2))
+                # Get the raduis from the with of the square
+                r = (right - left) / 2
+                # Add 20% padding
+                r = int(r + (r * 0.2))
 
-				# If we have models defined for the current user
-				if models:
-					# Get the encoding of the face in the frame
-					face_encoding = np.asarray(detector_bundle.detector.encode(orig_frame, loc), dtype=np.float32)
+                # If we have models defined for the current user
+                if models:
+                    # Get the encoding of the face in the frame
+                    face_encoding = np.asarray(
+                        detector_bundle.detector.encode(orig_frame, loc), dtype=np.float32
+                    )
 
-					# Match this found face against a known face
-					matches = np.linalg.norm(encodings - face_encoding, axis=1)
+                    # Match this found face against a known face
+                    matches = np.linalg.norm(encodings - face_encoding, axis=1)
 
-					# Get best match
-					match_index = np.argmin(matches)
-					match = matches[match_index]
+                    # Get best match
+                    match_index = np.argmin(matches)
+                    match = matches[match_index]
 
-					# If a model matches
-					if 0 < match < video_certainty:
-						# Turn the circle green
-						color = (0, 230, 0)
+                    # If a model matches
+                    if 0 < match < video_certainty:
+                        # Turn the circle green
+                        color = (0, 230, 0)
 
-						# Print the name of the model next to the circle
-						circle_text = "{} (certainty: {})".format(models[match_index]["label"], round(match * 10, 3))
-						cv2.putText(overlay, circle_text, (int(x + r / 3), y - r), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 255, 0), 0, cv2.LINE_AA)
-					# If no approved matches, show red text
-					else:
-						cv2.putText(overlay, "no match", (int(x + r / 3), y - r), cv2.FONT_HERSHEY_SIMPLEX, .3, (0, 0, 255), 0, cv2.LINE_AA)
+                        # Print the name of the model next to the circle
+                        circle_text = "{} (certainty: {})".format(
+                            models[match_index]["label"], round(match * 10, 3)
+                        )
+                        cv2.putText(
+                            overlay,
+                            circle_text,
+                            (int(x + r / 3), y - r),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.3,
+                            (0, 255, 0),
+                            0,
+                            cv2.LINE_AA,
+                        )
+                    # If no approved matches, show red text
+                    else:
+                        cv2.putText(
+                            overlay,
+                            "no match",
+                            (int(x + r / 3), y - r),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.3,
+                            (0, 0, 255),
+                            0,
+                            cv2.LINE_AA,
+                        )
 
-				# Draw the Circle in green
-				cv2.circle(overlay, (x, y), r, color, 2)
+                # Draw the Circle in green
+                cv2.circle(overlay, (x, y), r, color, 2)
 
-		# Add the overlay to the frame with some transparency
-		alpha = 0.65
-		frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-		cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+        # Add the overlay to the frame with some transparency
+        alpha = 0.65
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
-		# Show the image in a window
-		cv2.imshow("SecureEye Test", frame)
+        # Show the image in a window
+        cv2.imshow("SecureEye Test", frame)
 
-		# Quit on any keypress
-		if cv2.waitKey(1) != -1:
-			raise KeyboardInterrupt()
+        # Quit on any keypress
+        if cv2.waitKey(1) != -1:
+            raise KeyboardInterrupt()
 
-		frame_time = time.time() - frame_tm
+        frame_time = time.time() - frame_tm
 
-		# Delay the frame if slowmode is on
-		if slow_mode:
-			time.sleep(max([.5 - frame_time, 0.0]))
+        # Delay the frame if slowmode is on
+        if slow_mode:
+            time.sleep(max([0.5 - frame_time, 0.0]))
 
-		if exposure != -1:
-			# For a strange reason on some cameras (e.g. Lenoxo X1E)
-			# setting manual exposure works only after a couple frames
-			# are captured and even after a delay it does not
-			# always work. Setting exposure at every frame is
-			# reliable though.
-			video_capture.internal.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)  # 1 = Manual
-			video_capture.internal.set(cv2.CAP_PROP_EXPOSURE, float(exposure))
+        if exposure != -1:
+            # For a strange reason on some cameras (e.g. Lenoxo X1E)
+            # setting manual exposure works only after a couple frames
+            # are captured and even after a delay it does not
+            # always work. Setting exposure at every frame is
+            # reliable though.
+            video_capture.internal.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)  # 1 = Manual
+            video_capture.internal.set(cv2.CAP_PROP_EXPOSURE, float(exposure))
 
 # On ctrl+C
 except KeyboardInterrupt:
-	# Let the user know we're stopping
-	print(_("\nClosing window"))
+    # Let the user know we're stopping
+    print(_("\nClosing window"))
 
-	# Release handle to the webcam
-	cv2.destroyAllWindows()
+    # Release handle to the webcam
+    cv2.destroyAllWindows()

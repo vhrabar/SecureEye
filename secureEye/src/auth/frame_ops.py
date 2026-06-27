@@ -22,16 +22,20 @@ def maybe_scale(frame: NDArray, gsframe: NDArray, scaling_factor: float) -> tupl
     if scaling_factor == 1:
         return frame, gsframe
 
-    frame = cv2.resize(frame, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA)
-    gsframe = cv2.resize(gsframe, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA)
+    frame = cv2.resize(
+        frame, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA
+    )
+    gsframe = cv2.resize(
+        gsframe, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA
+    )
     return frame, gsframe
 
 
 def apply_rotation_mode(
-        frame: NDArray,
-        gsframe: NDArray,
-        rotate_mode: int,
-        frame_number: int,
+    frame: NDArray,
+    gsframe: NDArray,
+    rotate_mode: int,
+    frame_number: int,
 ) -> tuple[NDArray, NDArray]:
     """Rotate frames according to SecureEye rotate config semantics."""
     if rotate_mode == 1:

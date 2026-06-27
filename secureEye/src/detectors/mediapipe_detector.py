@@ -58,9 +58,7 @@ class MediaPipeDetector(FaceDetector):
             with urlopen(url, timeout=20) as response:
                 destination.write_bytes(response.read())
         except Exception as exc:  # pragma: no cover - network-dependent path
-            raise RuntimeError(
-                f"Failed to download MediaPipe model from {url}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to download MediaPipe model from {url}: {exc}") from exc
         return destination
 
     @staticmethod

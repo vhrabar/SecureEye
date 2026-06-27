@@ -33,8 +33,7 @@ certainty = 3.5
 dark_threshold = 60
 exposure = -1
 recording_plugin = opencv
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
@@ -43,7 +42,9 @@ recording_plugin = opencv
 
     monkeypatch.setattr(paths_factory, "config_file_path", lambda: str(config_path))
     monkeypatch.setattr(paths_factory, "user_models_dir_path", lambda: models_dir)
-    monkeypatch.setattr(paths_factory, "user_model_path", lambda user: str(models_dir / f"{user}.dat"))
+    monkeypatch.setattr(
+        paths_factory, "user_model_path", lambda user: str(models_dir / f"{user}.dat")
+    )
     monkeypatch.setattr(paths_factory, "dlib_data_dir_path", lambda: str(tmp_path / "dlib-data"))
 
     args = SimpleNamespace(arguments=[], y=True, plain=False)

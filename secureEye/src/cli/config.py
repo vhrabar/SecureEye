@@ -39,4 +39,8 @@ if editor:
 else:
     print(_("Error: Could not find a suitable text editor."))
     print(_("Please install 'nano' or 'vi', or set the EDITOR environment variable."))
-    print(_("If you are running this command with sudo, try 'sudo -E secureEye config' to preserve your EDITOR variable."))
+    print(
+        _(
+            "If you are running this command with sudo, try 'sudo -E secureEye config' to preserve your EDITOR variable."
+        )
+    )

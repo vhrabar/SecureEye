@@ -85,7 +85,6 @@ def _read_frame(conn: socket.socket) -> dict:
     return payload
 
 
-
 def _validate_payload(payload: dict) -> AuthRequest:
     """
     Validate the payload of an incoming request.
@@ -177,27 +176,29 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
             pool.shutdown(wait=False, cancel_futures=True)
 
         # send response
-        _write_frame(conn,
-                     {
-                         "v": PROTO_VERSION,
-                         "type": "auth_response",
-                         "request_id": req.id,
-                         "result_code": code,
-                         "detail": "ok" if code == 0 else "auth_failed",
-                     }
-                     )
+        _write_frame(
+            conn,
+            {
+                "v": PROTO_VERSION,
+                "type": "auth_response",
+                "request_id": req.id,
+                "result_code": code,
+                "detail": "ok" if code == 0 else "auth_failed",
+            },
+        )
     # fail-closed connection
     except BaseException:
         try:
-            _write_frame(conn,
-                         {
-                             "v": PROTO_VERSION,
-                             "type": "auth_response",
-                             "request_id": None,
-                             "result_code": INTERNAL_ERROR_CODE,
-                             "detail": "auth_failed",
-                         }
-                         )
+            _write_frame(
+                conn,
+                {
+                    "v": PROTO_VERSION,
+                    "type": "auth_response",
+                    "request_id": None,
+                    "result_code": INTERNAL_ERROR_CODE,
+                    "detail": "auth_failed",
+                },
+            )
         except Exception:
             pass
 

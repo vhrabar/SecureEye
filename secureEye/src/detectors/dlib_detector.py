@@ -29,9 +29,7 @@ class DlibDetector(FaceDetector):
         else:
             self.detector = dlib.get_frontal_face_detector()
         self.pose_predictor = dlib.shape_predictor(str(shape_path))
-        self.face_encoder = dlib.face_recognition_model_v1(
-            encoder_path
-        )
+        self.face_encoder = dlib.face_recognition_model_v1(encoder_path)
 
     def detect(self, frame: NDArray) -> List[Tuple[int, int, int, int]]:
         faces = self.detector(frame, 1)

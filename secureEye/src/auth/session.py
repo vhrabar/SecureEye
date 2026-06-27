@@ -67,7 +67,7 @@ class AuthSession:
         finally:
             self.ui.close()
 
-    def _run_loop(self, config, models, encodings) -> int:
+    def _run_loop(self, config, models, encodings) -> int:  # noqa: C901
         save_failed = config.getboolean("snapshots", "save_failed", fallback=False)
         save_successful = config.getboolean("snapshots", "save_successful", fallback=False)
         end_report = config.getboolean("debug", "end_report", fallback=False)
@@ -120,9 +120,11 @@ class AuthSession:
                     if stats.dark_tries == stats.valid_frames:
                         print(_("All frames were too dark, please check dark_threshold in config"))
                         avg_darkness = dark_running_total / max(1, stats.valid_frames)
-                        print(_("Average darkness: {avg}, Threshold: {threshold}").format(
-                            avg=str(avg_darkness), threshold=str(dark_threshold)
-                        ))
+                        print(
+                            _("Average darkness: {avg}, Threshold: {threshold}").format(
+                                avg=str(avg_darkness), threshold=str(dark_threshold)
+                            )
+                        )
                         return int(ExitCode.TOO_DARK)
                     return int(ExitCode.TIMEOUT_REACHED)
 
@@ -162,12 +164,16 @@ class AuthSession:
                     self.timings["fl"] = time.time() - self.timings["fr"]
 
                     if end_report:
-                        self._print_end_report(models, match_index, match, stats, video_capture, frame, height)
+                        self._print_end_report(
+                            models, match_index, match, stats, video_capture, frame, height
+                        )
 
                     if save_successful:
                         self._make_snapshot(_("SUCCESSFUL"), snapframes, stats)
 
-                    stamp_code = self._run_rubberstamps_if_enabled(config, detector_bundle, video_capture, clahe)
+                    stamp_code = self._run_rubberstamps_if_enabled(
+                        config, detector_bundle, video_capture, clahe
+                    )
                     if stamp_code is not None:
                         return stamp_code
 
@@ -217,43 +223,60 @@ class AuthSession:
 
         return holder["bundle"], holder["error"]
 
-    def _run_rubberstamps_if_enabled(self, config, detector_bundle, video_capture, clahe) -> int | None:
+    def _run_rubberstamps_if_enabled(
+        self, config, detector_bundle, video_capture, clahe
+    ) -> int | None:
         if not config.getboolean("rubberstamps", "enabled", fallback=False):
             return None
 
-        if detector_bundle.legacy_face_detector is None or detector_bundle.legacy_pose_predictor is None:
+        if (
+            detector_bundle.legacy_face_detector is None
+            or detector_bundle.legacy_pose_predictor is None
+        ):
             print(_("Rubberstamps currently require the dlib detector backend"))
             return int(ExitCode.RUBBERSTAMP)
 
         try:
             import rubberstamps
-        except ModuleNotFoundError as exc:  # pragma: no cover - fallback for package-style execution
+        except (
+            ModuleNotFoundError
+        ) as exc:  # pragma: no cover - fallback for package-style execution
             if getattr(exc, "name", "") != "rubberstamps":
                 raise
             from secureEye.src import rubberstamps
 
         self._send_ui("S", "")
         try:
-            rubberstamps.execute(config, None, {
-                "video_capture": video_capture,
-                "face_detector": detector_bundle.legacy_face_detector,
-                "pose_predictor": detector_bundle.legacy_pose_predictor,
-                "clahe": clahe,
-            })
+            rubberstamps.execute(
+                config,
+                None,
+                {
+                    "video_capture": video_capture,
+                    "face_detector": detector_bundle.legacy_face_detector,
+                    "pose_predictor": detector_bundle.legacy_pose_predictor,
+                    "clahe": clahe,
+                },
+            )
         except SystemExit as exc:
             return int(exc.code) if isinstance(exc.code, int) else int(ExitCode.RUBBERSTAMP)
         return None
 
     def _make_snapshot(self, state: str, snapframes: list[Any], stats: RuntimeStats) -> None:
-        snapshot.generate(snapframes, [
-            state + _(" LOGIN"),
-            _("Date: ") + datetime.now(timezone.utc).strftime("%Y/%m/%d %H:%M:%S UTC"),
-            _("Scan time: ") + str(round(time.time() - self.timings["fr"], 2)) + "s",
-            _("Frames: ") + str(stats.frames) + " (" + str(
-                round(stats.frames / (time.time() - self.timings["fr"]), 2)) + "FPS)",
-            _("Hostname: ") + os.uname().nodename,
-            _("Best certainty value: ") + str(round(stats.lowest_certainty * 10, 1)),
-        ])
+        snapshot.generate(
+            snapframes,
+            [
+                state + _(" LOGIN"),
+                _("Date: ") + datetime.now(timezone.utc).strftime("%Y/%m/%d %H:%M:%S UTC"),
+                _("Scan time: ") + str(round(time.time() - self.timings["fr"], 2)) + "s",
+                _("Frames: ")
+                + str(stats.frames)
+                + " ("
+                + str(round(stats.frames / (time.time() - self.timings["fr"]), 2))
+                + "FPS)",
+                _("Hostname: ") + os.uname().nodename,
+                _("Best certainty value: ") + str(round(stats.lowest_certainty * 10, 1)),
+            ],
+        )
 
     def _ui_subtext(self, stats: RuntimeStats) -> str:
         ui_subtext = "Scanned " + str(stats.valid_frames - stats.dark_tries) + " frames"
@@ -271,7 +294,14 @@ class AuthSession:
 
         print(_("Time spent"))
         print_timing(_("Starting up"), "in")
-        print(_("  Open cam + load libs: %dms") % (round(max(self.timings["ll"], self.timings["ic"]) * 1000, )))
+        print(
+            _("  Open cam + load libs: %dms")
+            % (
+                round(
+                    max(self.timings["ll"], self.timings["ic"]) * 1000,
+                )
+            )
+        )
         print_timing(_("  Opening the camera"), "ic")
         print_timing(_("  Importing recognition libs"), "ll")
         print_timing(_("Searching for known face"), "fl")
@@ -283,12 +313,17 @@ class AuthSession:
         scale_height, scale_width = frame.shape[:2]
         print(_("  Used: %dx%d") % (scale_height, scale_width))
 
-        print(_("\nFrames searched: %d (%.2f fps)") % (stats.frames, stats.frames / self.timings["fl"]))
+        print(
+            _("\nFrames searched: %d (%.2f fps)")
+            % (stats.frames, stats.frames / self.timings["fl"])
+        )
         print(_("Black frames ignored: %d ") % (stats.black_tries,))
         print(_("Dark frames ignored: %d ") % (stats.dark_tries,))
         print(_("Certainty of winning frame: %.3f") % (match * 10,))
 
         if 0 <= match_index < len(models):
-            print(_("Winning model: %d (\"%s\")") % (match_index, models[match_index].get("label", "?")))
+            print(
+                _('Winning model: %d ("%s")') % (match_index, models[match_index].get("label", "?"))
+            )
         else:
             print(_("Winning model index: %d") % match_index)
