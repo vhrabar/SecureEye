@@ -24,6 +24,7 @@ jobs:
             version_suffix: ""
             dpkg_flags: "-b"
             vendor_mediapipe: "true"
+            smoke: "true"
           # x86-64-v3 micro-architecture optimised amd64 build
           - name: amd64v3
             runner: ubuntu-24.04
@@ -31,6 +32,7 @@ jobs:
             version_suffix: "+v3"
             dpkg_flags: "-B"
             vendor_mediapipe: "true"
+            smoke: "false"
           # arm64 (native runner).
           - name: arm64
             runner: ubuntu-24.04-arm
@@ -38,6 +40,7 @@ jobs:
             version_suffix: ""
             dpkg_flags: "-B"
             vendor_mediapipe: "false"
+            smoke: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +49,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            debhelper devscripts dpkg-dev build-essential fakeroot \
+            debhelper devscripts dpkg-dev build-essential fakeroot lintian \
             meson ninja-build pkg-config cmake gettext \
             python3 python3-pip python3-venv \
             libpam0g-dev libevdev-dev libinih-dev
@@ -108,6 +111,23 @@ jobs:
           mv ../*.deb dist/ 2>/dev/null || true
           mv ../*.ddeb dist/ 2>/dev/null || true
           ls -la dist
+
+      - name: Lintian
+        run: lintian --fail-on error --no-tag-display-limit dist/*.deb
+
+      - name: Install smoke test
+        if: matrix.smoke == 'true'
+        run: |
+          docker run --rm -v "$PWD/dist:/debs:ro" ubuntu:24.04 bash -euc '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            # apt resolves the bundled .debs plus their archive dependencies.
+            apt-get install -y --no-install-recommends /debs/*.deb
+            # Confirm the daemon package configured cleanly.
+            dpkg -s secureeye-authd | grep -q "^Status: install ok installed"
+            dpkg -s libpam-secureeye | grep -q "^Status: install ok installed"
+            echo "Install smoke test passed."
+          '
 
       - uses: actions/upload-artifact@v4
         with:
