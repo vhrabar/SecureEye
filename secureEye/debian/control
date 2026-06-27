@@ -11,11 +11,11 @@ Build-Depends:
  ninja-build,
  pkg-config,
  python3,
+ python3-pip,
  libpam0g-dev,
  libevdev-dev,
  libinih-dev
 Vcs-Git: https://github.com/vhrabar/secureEye
-
 Package: libpam-secureeye
 Section: admin
 Architecture: any
@@ -29,11 +29,15 @@ Section: admin
 Architecture: any
 Depends:
  ${misc:Depends},
+ ${secureeye:Backend},
  python3,
  python3-venv,
- python3-pip,
  python3-numpy,
  python3-opencv,
+ python3-matplotlib,
+ python3-cffi,
+ python3-future,
+ libportaudio2,
  v4l-utils
 Recommends: libpam-secureeye
 Description: SecureEye authentication daemon and Python runtime components

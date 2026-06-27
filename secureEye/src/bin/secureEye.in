@@ -1,3 +1,11 @@
 #!/bin/sh
 
-@python_path@ "@script_path@" "$@"
+PYTHONPATH="@py_sources_dir@/secureEye${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+
+VENV_PY="@authd_python@"
+if [ -x "$VENV_PY" ]; then
+	exec "$VENV_PY" "@script_path@" "$@"
+fi
+
+exec @python_path@ "@script_path@" "$@"

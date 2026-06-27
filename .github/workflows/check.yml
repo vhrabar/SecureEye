@@ -26,3 +26,4 @@ jobs:
       - name: Check source code
         run: |
           ninja clang-tidy -C build
+          
