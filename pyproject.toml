@@ -1,3 +1,33 @@
+[project]
+name = "SecureEye"
+version = "0.1.0"
+description = "Modern facial authentication for Linux systems (PAM)."
+requires-python = ">=3.12"
+readme = "README.md"
+license = "GPL-2.0-only"
+authors = [
+	{ name = "Vedran Hrabar", email = "vedran.hrabar@outlook.com" },
+]
+
+dependencies = [
+	"ffmpeg-python==0.2.0",
+	"keras==3.13.2",
+	"keyboard==0.13.5",
+	"mediapipe==0.10.33",
+	"numpy==2.3.4",
+	"opencv-contrib-python==4.13.0.92",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+	"pytest",
+	"black",
+	"ruff",
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py312']

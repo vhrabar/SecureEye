@@ -6,7 +6,8 @@ Modern face recognition authentication for Linux using PAM.
 
 ## Overview
 
-EyeAuth is a clean, modern reimplementation of facial authentication for Linux systems. It enables users to authenticate via face recognition while maintaining a modular, secure, and maintainable architecture.
+SecureEye is a clean, modern reimplementation of facial authentication for Linux systems. It enables users to
+authenticate via face recognition while maintaining a modular, secure, and maintainable architecture.
 
 This project is inspired by the Howdy project but is being redesigned with updated technologies, improved structure, and long-term maintainability in mind.
 
@@ -34,57 +35,101 @@ Early development. Core architecture and modules are being actively built.
 
 #### Dependencies
 
-- Python 3.12 or higher (pip, setuptools, wheel)
-- Meson 0.64 or higher
-- Ninja
-- INIReader (fetched automatically if missing)
-- libevdev
+These mirror the package `Build-Depends` in `secureEye/debian/control`:
+
+- Meson 0.64 or higher, Ninja, pkg-config, a C++ compiler (`build-essential`)
+- Python 3 with pip (`python3`, `python3-pip`)
+- `libpam0g-dev`, `libevdev-dev`, `libinih-dev` (INIReader is provided by
+  `libinih-dev`; it is **not** downloaded, the build runs with
+  `--wrap-mode=nodownload`)
 
 #### Install Dependencies
 
 ```bash
 sudo apt-get update && sudo apt-get install -y \
-    python3 python3-pip python3-setuptools python3-wheel \
-    cmake make build-essential \
-    libpam0g-dev libinih-dev libevdev-dev python3-opencv \
-    python3-dev libopencv-dev
+    meson ninja-build pkg-config build-essential \
+    python3 python3-pip python3-venv \
+    libpam0g-dev libinih-dev libevdev-dev
 ```
 
-#### Build & Install
+#### Build
 
 ```bash
 meson setup build
 meson compile -C build
 ```
 
-You can also install SecureEye to your system with `meson install -C build`.
+> [!WARNING]
+> Do **not** run `meson install` on a machine where you also use the `.deb`
+> packages. Meson's default prefix is `/usr/local`, and `/usr/local/lib/...`
+> shadows the packaged `/usr/lib/...` systemd unit (and `/usr/local/bin` shadows
+> `/usr/bin`), which breaks the daemon and CLI. A bare `meson install` also does
+> **not** create the recognition virtualenv — that is built by the
+> `secureeye-authd` package at install time — so the daemon will not start.
+> For a working system install, build and install the Debian packages below.
 
 ### Debian / Ubuntu & derivatives
 
-Download the latest .deb from the [GitHub releases page](https://github.com/vhrabar/SecureEye/releases)
-and install:
+SecureEye ships as three packages:
+
+- `libpam-secureeye` — the C/C++ PAM module (no Python)
+- `secureeye-authd` — the authentication daemon and Python recognition runtime
+- `secure-eye` — a transitional metapackage that depends on both
+
+Download the latest `.deb` files from the
+[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and
+install all of them together so dependencies (including `python3-venv`) resolve:
 
 ```bash
-sudo apt install ./SecureEye-<version>.deb
-sudo apt install -f
+sudo apt install ./libpam-secureeye_*.deb ./secureeye-authd_*.deb ./secure-eye_*.deb
 ```
+
+On install, `secureeye-authd` builds its recognition virtualenv from the bundled
+wheels (this takes a short while) and enables the `secureeye-authd.service`.
+
 ### PPA
 
 ```bash
 sudo add-apt-repository ppa:vhrabar/secure-eye
-sudo apt update && sudo apt install secureEye
+sudo apt update && sudo apt install secure-eye
 ```
 
 ---
 
 ## Usage
 
-After installation, SecureEye needs to learn what your face look like so it can recognise you later. Run
-`sudo secureEye add` to add a new face model.
+**1. Set your camera device.** The default config ships with `device_path = none`,
+so recognition does nothing until you point it at a real capture device. Open the
+config and set `device_path` (e.g. `/dev/video0`):
 
-If nothing went wrong we should be able to run sudo by just showing your face. Open a new terminal and run `sudo -i` to
-see it in action. Please check [this wiki page](https://github.com/vhrabar/SecureEye/wiki/Common-issues) if you're
-experiencing problems or [search](https://github.com/vhrabar/SecureEye/issues) for similar issues.
+```bash
+sudo secureEye config
+```
+
+You can list capture-capable nodes with `v4l2-ctl --list-devices`. After changing
+the device, restart the daemon: `sudo systemctl restart secureeye-authd`.
+
+**2. Enroll your face.** SecureEye needs to learn your face so it can recognise
+you later:
+
+```bash
+sudo secureEye add
+```
+
+**3. Make sure the PAM profile is enabled.** It is normally enabled automatically
+on install, but `pam-auth-update` will skip a profile it has already "seen" from a
+previous install. Verify (and enable if needed):
+
+```bash
+grep -q pam_secureEye.so /etc/pam.d/common-auth && echo enabled || sudo pam-auth-update --enable secureEye.pam-config
+```
+
+**4. Try it.** Open a new terminal and run `sudo -i` — you should be able to
+authenticate by showing your face. If face auth fails or times out, SecureEye
+falls back to your password. Please check
+[this wiki page](https://github.com/vhrabar/SecureEye/wiki/Common-issues) if
+you're experiencing problems or
+[search](https://github.com/vhrabar/SecureEye/issues) for similar issues.
 
 ## CLI
 
@@ -102,7 +147,7 @@ secureEye [-U user] [-y] command [argument]
 | `add`      | Add a new face model for a user             |
 | `clear`    | Remove all face models for a user           |
 | `config`   | Open the config file in your default editor |
-| `disable`  | Disable or enable howdy                     |
+| `disable`  | Disable or enable SecureEye                 |
 | `list`     | List all saved face models for a user       |
 | `remove`   | Remove a specific model for a user          |
 | `snapshot` | Take a snapshot of your camera input        |

@@ -1,0 +1,54 @@
+secure-eye (0.1.0-1) unstable; urgency=medium
+
+  Initial release of SecureEye, a modern reimplementation of facial
+  authentication for Linux derived from the Howdy project
+
+  * Project:
+    - Fork and rebrand Howdy as SecureEye; derived work preserved via git
+      history, with NOTICE and bundled MIT licence for derived code.
+    - Add Code of Conduct, Contributing and Security policy; configure
+      clang-tidy, ruff and pyproject tooling.
+
+  * Detection:
+    - Replace the dlib pipeline with a MediaPipe-based face detector, with
+      FaceNet embeddings and preprocessing utilities; keep dlib as an optional
+      backend.
+    - Add a config-driven detector factory with lazy imports so CLI/GUI tools
+      only load the backend they need.
+
+  * Architecture (PAM/authd split):
+    - Split authentication into a minimal C/C++ PAM module and a Python
+      authentication daemon communicating over a UNIX-domain socket, keeping
+      Python and MediaPipe out of the PAM path so authentication fails safe.
+    - Add the secureeye-authd daemon: socket server, bounded request
+      validation, versioned IPC protocol (v1) encode/decode, and cooperative
+      cancellation with a timeout budget.
+    - Rework the PAM module into an IPC client that enforces a wait timeout and
+      falls back to password when the daemon is unavailable.
+    - Refactor the former compare.py monolith into modules (errors, types,
+      frame ops, matching, model store, auth session, UI bridge).
+
+  * CLI:
+    - Config-driven entrypoint with dynamic module loading and model
+      management commands (add, clear, config, disable, list, remove,
+      snapshot, test, version).
+
+  * Packaging:
+    - Split into libpam-secureeye (PAM module only), secureeye-authd (daemon
+      and Python runtime) and a secure-eye transitional metapackage.
+    - Install a systemd service and sysusers entry for the daemon.
+    - Vendor pinned Python dependencies as wheels and build the runtime venv on
+      the target host at install time; rebuild it on python3 upgrades via a
+      dpkg trigger.
+
+  * Documentation:
+    - Add architecture, IPC protocol v1 and PAM behaviour-matrix docs; expand
+      the README with installation, usage and Docker PAM smoke-test
+      instructions.
+
+  * CI and containers:
+    - Add GitHub Actions test workflow, CodeQL analysis and Dependabot.
+    - Add a Dockerfile and Compose setup for the test environment and the PAM
+      sudo smoke-test flows.
+
+ -- Vedran Hrabar <vedran.hrabar@outlook.com>  Fri, 26 Jun 2026 15:14:57 +0200

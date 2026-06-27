@@ -3,22 +3,9 @@ set -e
 
 case "$1" in
     configure)
-        if { [ -f /usr/share/pam-configs/secureEye ] || [ -f /usr/share/pam-configs/secureEye.pam-config ]; } && command -v pam-auth-update >/dev/null 2>&1 && \
+        if command -v pam-auth-update >/dev/null 2>&1 && \
            { [ -z "${DPKG_MAINTSCRIPT_PACKAGE:-}" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE:-}" = "libpam-secureeye" ]; }; then
             pam-auth-update --package || true
-        fi
-        if [ -f /usr/lib/sysusers.d/secureeye-authd.conf ] && command -v systemd-sysusers >/dev/null 2>&1 && \
-           { [ -z "${DPKG_MAINTSCRIPT_PACKAGE:-}" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE:-}" = "secureeye-authd" ]; }; then
-            systemd-sysusers /usr/lib/sysusers.d/secureeye-authd.conf || true
-        fi
-        if { [ -z "${DPKG_MAINTSCRIPT_PACKAGE:-}" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE:-}" = "secureeye-authd" ]; } && command -v python3 >/dev/null 2>&1; then
-            VENV_DIR=/var/lib/secureeye-authd/venv
-            if [ ! -x "$VENV_DIR/bin/python3" ]; then
-                mkdir -p /var/lib/secureeye-authd
-                python3 -m venv "$VENV_DIR"
-            fi
-            "$VENV_DIR/bin/python3" -m pip install --upgrade pip setuptools wheel >/dev/null 2>&1 || true
-            "$VENV_DIR/bin/python3" -m pip install --upgrade mediapipe
         fi
         ;;
 esac
