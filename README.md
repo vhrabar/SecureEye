@@ -202,6 +202,8 @@ SECUREEYE_VIDEO_DEVICE=/dev/video0 docker compose --profile pam run --rm pam-smo
 
 This project is licensed under the GNU General Public License v2.0.
 
+Copyright © 2026 Vedran Hrabar
+
 It includes code derived from the Howdy project, which is licensed under the MIT License.
 See the NOTICE file and `/licenses/MIT.txt` for details.
 
