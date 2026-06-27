@@ -1,0 +1,12 @@
+# Wheels vendored into the secureeye-authd venv (installed with --no-deps into a
+# --system-site-packages venv). The heavy, ABI-specific dependencies
+# (numpy, opencv, matplotlib) are provided by the distro instead — see the
+# secureeye-authd Depends in debian/control — which keeps the vendored payload
+# small (~12 MB) and Python-version independent. requirements.txt remains the
+# full list for local development.
+mediapipe==0.10.33
+ffmpeg-python==0.2.0
+keyboard==0.13.5
+absl-py~=2.3
+flatbuffers~=25.9
+sounddevice~=0.5
