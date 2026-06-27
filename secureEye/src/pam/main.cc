@@ -538,7 +538,7 @@ auto identify(pam_handle_t *pamh, int flags, int argc, const char **argv,
   if (config.ParseError() != 0) {
     syslog(LOG_ERR, "Failed to parse the configuration file: %d",
            config.ParseError());
-    return PAM_SYSTEM_ERR;gs generated.
+    return PAM_SYSTEM_ERR;
   }
 
   // Will contain the responses from PAM functions
