@@ -32,7 +32,7 @@ jobs:
       - name: "Build C++ project"
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build
+          sudo apt-get install -y meson ninja-build libpam0g-dev libinih-dev libevdev-dev
           meson setup build
           ninja -C build
 
