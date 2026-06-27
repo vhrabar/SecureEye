@@ -17,16 +17,15 @@ The project focuses on maintainability, modularity, and security.
 
 * Python 3.12+
 * Git
-* Virtual environment tools
+* [uv](https://docs.astral.sh/uv/) (see the install instructions in the uv docs)
 
 ### Setup
 
 ```bash
 git clone https://github.com/vhrabar/secureEye
-cd esecureEye
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+cd secureEye
+uv sync
+source .venv/bin/activate
 ```
 
 ---

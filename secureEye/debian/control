@@ -16,7 +16,6 @@ Build-Depends:
  libevdev-dev,
  libinih-dev
 Vcs-Git: https://github.com/vhrabar/secureEye
-
 Package: libpam-secureeye
 Section: admin
 Architecture: any
