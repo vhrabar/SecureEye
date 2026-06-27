@@ -37,7 +37,6 @@ Depends:
  python3-opencv,
  python3-matplotlib,
  python3-cffi,
- python3-future,
  libportaudio2,
  v4l-utils
 Recommends: libpam-secureeye

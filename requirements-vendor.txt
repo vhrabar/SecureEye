@@ -10,3 +10,6 @@ keyboard==0.13.5
 absl-py~=2.3
 flatbuffers~=25.9
 sounddevice~=0.5
+# future: required by ffmpeg-python. Vendored here because python3-future was
+# dropped from recent Ubuntu/Debian archives, so it can no longer be a Depends.
+future~=1.0
