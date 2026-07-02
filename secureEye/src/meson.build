@@ -115,12 +115,12 @@ autocomplete = configure_file(
 install_data(
     autocomplete,
     install_dir: join_paths(get_option('prefix'), get_option('datadir'), 'bash-completion', 'completions'),
-    install_mode: 'rwxr--r--',
+    install_mode : 'rw-r--r--',
     install_tag: 'bash_completion',
     rename: 'secureEye',
 )
 
-install_data('config.ini', install_dir: confdir, install_mode: 'rwxr--r--', install_tag: 'config')
+install_data('config.ini', install_dir : confdir, install_mode : 'rw-r--r--', install_tag : 'config')
 
 install_data('dlib-data/install.sh', 'dlib-data/Readme.md', install_dir: dlibdatadir, install_mode: 'rwxr--r--')
 

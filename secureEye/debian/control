@@ -45,7 +45,7 @@ Description: SecureEye authentication daemon and Python runtime components
  Includes systemd service assets and CLI tooling.
 
 Package: secure-eye
-Section: admin
+Section: oldlibs
 Architecture: all
 Depends: ${misc:Depends}, libpam-secureeye, secureeye-authd
 Description: Transitional package for SecureEye split packages

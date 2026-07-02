@@ -61,13 +61,13 @@ jobs:
 
       - name: Set package version
         env:
-          DEBEMAIL: "ci@secureeye"
-          DEBFULLNAME: "SecureEye CI"
+          DEBEMAIL: "vedran.hrabar@outlook.com"
+          DEBFULLNAME: "Vedran Hrabar"
         run: |
           base="$(dpkg-parsechangelog -S Version)"
           if [ "${{ github.event_name }}" = "release" ]; then
             tag="${{ github.ref_name }}"
-            base="${tag#v}-1"
+            base="${tag#v}"
           fi
           version="${base}${{ matrix.version_suffix }}"
           if [ "$version" != "$(dpkg-parsechangelog -S Version)" ]; then
@@ -113,7 +113,7 @@ jobs:
           ls -la dist
 
       - name: Lintian
-        run: lintian --fail-on error --no-tag-display-limit dist/*.deb
+        run: lintian --fail-on error --tag-display-limit 0 dist/*.deb
 
       - name: Install smoke test
         if: matrix.smoke == 'true'

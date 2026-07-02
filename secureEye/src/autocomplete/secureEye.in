@@ -1,6 +1,5 @@
-#!/bin/bash
-# Autocomplete file run in bash
-# Will sugest arguments on tab
+# Bash completion for secureEye, sourced by bash-completion.
+# Suggests arguments on tab.
 
 _secureEye() {
 	local cur prev opts
