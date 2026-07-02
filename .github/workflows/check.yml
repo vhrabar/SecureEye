@@ -12,6 +12,7 @@ jobs:
           cmake make build-essential clang-tidy
           libpam0g-dev libinih-dev libevdev-dev 
           python3-dev libopencv-dev
+          qt6-base-dev qt6-base-dev-tools gettext
         
       - name: Install meson
         run: sudo python3 -m pip install meson ninja
