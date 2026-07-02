@@ -118,9 +118,10 @@ jobs:
       - name: Install smoke test
         if: matrix.smoke == 'true'
         run: |
-          docker run --rm -v "$PWD/dist:/debs:ro" ubuntu:24.04 bash -euc '
+          docker run --rm -v "$PWD/dist:/debs:ro" ubuntu:26.04 bash -euc '
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
+            add-apt-repository ppa:vhrabar/tools
             # apt resolves the bundled .debs plus their archive dependencies.
             apt-get install -y --no-install-recommends /debs/*.deb
             # Confirm the daemon package configured cleanly.
