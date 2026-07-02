@@ -3,11 +3,27 @@ from typing import List, Tuple
 from urllib.request import urlopen
 
 import cv2
-import mediapipe as mp
 import numpy as np
-from mediapipe.tasks.python import BaseOptions
-from mediapipe.tasks.python import vision
 from numpy.typing import NDArray
+
+# fake import to prevent PipeAudio errors -> audio is never used
+import sys
+import types
+
+if "sounddevice" not in sys.modules:
+    try:
+        import sounddevice  # noqa: F401
+    except Exception:
+
+        class _SilentModule(types.ModuleType):
+            def __getattr__(self, _name):
+                return None
+
+        sys.modules["sounddevice"] = _SilentModule("sounddevice")
+
+import mediapipe as mp  # noqa: E402
+from mediapipe.tasks.python import BaseOptions  # noqa: E402
+from mediapipe.tasks.python import vision  # noqa: E402
 
 from .base import FaceDetector
 
