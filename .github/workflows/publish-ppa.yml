@@ -53,7 +53,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Publish to Launchpad PPA
-        run: scripts/publish-ppa.sh
+        run: bash scripts/publish-ppa.sh
         env:
           REPOSITORY: "vhrabar/tools"
           GPG_PRIVATE_KEY: ${{ secrets.PPA_GPG_PRIVATE_KEY }}
