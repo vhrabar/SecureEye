@@ -160,6 +160,14 @@ if [[ -n $DEBIAN_DIR ]]; then
     fi
 fi
 
+
+is_native=0
+if [[ -n $debian_dir && -f "$debian_dir/source/format" ]] \
+    && grep -qi 'native' "$debian_dir/source/format"; then
+    is_native=1
+    echo "Detected 3.0 (native) source format; skipping debmake and orig tarball."
+fi
+
 rm -rf /tmp/workspace && mkdir -p /tmp/workspace/source
 
 dput_config=/tmp/workspace/dput.cf
@@ -223,12 +231,18 @@ for s in $SERIES; do
     fi
     cd "$source_dir"
 
-    echo "Making non-native package..."
-    debmake $DEBMAKE_ARGUMENTS
+    if [[ "$is_native" == "1" ]]; then
+        # Native package: no debmake skeleton, just drop in the provided debian/.
+        rm -rf debian
+        cp -r /tmp/$s/debian debian
+    else
+        echo "Making non-native package..."
+        debmake $DEBMAKE_ARGUMENTS
 
-    if [[ -n $debian_dir ]]; then
-        # restore the custom debian directory
-        cp -r /tmp/$s/debian/* debian/
+        if [[ -n $debian_dir ]]; then
+            # restore the custom debian directory
+            cp -r /tmp/$s/debian/* debian/
+        fi
     fi
 
     # Ship the vendored wheels inside the source package (offline build input).
@@ -239,8 +253,10 @@ for s in $SERIES; do
     package=$(dpkg-parsechangelog --show-field Source)
     pkg_version=$(dpkg-parsechangelog --show-field Version | cut -d- -f1)
 
-    rm -f "../${package}_${pkg_version}.orig.tar".*
-    ln -sf "$source_archive" "../${package}_${pkg_version}.orig.${source_archive_extension}"
+    if [[ "$is_native" != "1" ]]; then
+        rm -f "../${package}_${pkg_version}.orig.tar".*
+        ln -sf "$source_archive" "../${package}_${pkg_version}.orig.${source_archive_extension}"
+    fi
 
     # Create the debian changelog
     rm -rf debian/changelog
