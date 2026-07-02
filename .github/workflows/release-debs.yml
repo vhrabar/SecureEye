@@ -51,6 +51,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             debhelper devscripts dpkg-dev build-essential fakeroot lintian \
             meson ninja-build pkg-config cmake gettext \
+            distro-info-data libdistro-info-perl \
             python3 python3-pip python3-venv \
             libpam0g-dev libevdev-dev libinih-dev
 
@@ -64,13 +65,18 @@ jobs:
           DEBEMAIL: "vedran.hrabar@outlook.com"
           DEBFULLNAME: "Vedran Hrabar"
         run: |
-          base="$(dpkg-parsechangelog -S Version)"
+          current="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          base="$current"
           if [ "${{ github.event_name }}" = "release" ]; then
             tag="${{ github.ref_name }}"
             base="${tag#v}"
           fi
+          if [ -z "$base" ]; then
+            echo "::error::Could not determine package version (empty)."
+            exit 1
+          fi
           version="${base}${{ matrix.version_suffix }}"
-          if [ "$version" != "$(dpkg-parsechangelog -S Version)" ]; then
+          if [ "$version" != "$current" ]; then
             dch -b -v "$version" -D unstable -u low \
               "Automated CI build (${{ matrix.name }})"
           fi
@@ -121,8 +127,9 @@ jobs:
           docker run --rm -v "$PWD/dist:/debs:ro" ubuntu:26.04 bash -euc '
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
-            add-apt-repository ppa:vhrabar/tools
-            # apt resolves the bundled .debs plus their archive dependencies.
+            apt-get install -y --no-install-recommends software-properties-common
+            add-apt-repository -y ppa:vhrabar/tools
+            # apt resolves the bundled .debs plus their archive/PPA dependencies.
             apt-get install -y --no-install-recommends /debs/*.deb
             # Confirm the daemon package configured cleanly.
             dpkg -s secureeye-authd | grep -q "^Status: install ok installed"
