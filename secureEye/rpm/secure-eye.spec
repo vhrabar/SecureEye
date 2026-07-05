@@ -5,10 +5,12 @@
 #   --define "rel_suffix .v3"          (x86-64-v3 build only)
 #   --define "march x86-64-v3"         (x86-64-v3 build only)
 #
-# Sources (created by scripts/build-rpm.sh):
+# Sources:
 #   Source0  git archive of the tree
-#   Source1  tar of vendored wheels (wheels/*.whl)
-#   Source2  sysusers fragment
+#   Source1  sysusers fragment
+# Recognition wheels are downloaded/compiled per-chroot in %%build (needs
+# network — enable "internet access" on COPR), so one SRPM serves every
+# chroot's Python version/arch.
 
 %{!?pkg_version:%global pkg_version 0.1.1}
 
@@ -28,8 +30,7 @@ Summary:        Transitional metapackage for SecureEye split packages
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/vhrabar/secureEye
 Source0:        %{name}-%{version}.tar.gz
-Source1:        secureeye-wheels.tar
-Source2:        secureeye-authd.sysusers
+Source1:        secureeye-authd.sysusers
 
 BuildRequires:  meson >= 0.64
 BuildRequires:  ninja-build
@@ -37,16 +38,17 @@ BuildRequires:  gcc-c++
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  pam-devel
 BuildRequires:  libevdev-devel
-# Provides INIReade
+# Provides INIReader
 BuildRequires:  inih-devel
 BuildRequires:  python3-devel
 BuildRequires:  systemd-rpm-macros
+# %%build downloads the recognition wheels for this chroot's Python.
+BuildRequires:  python3-pip
 
-# Non-x86_64 compiles the dlib wheel from source in %%build (see below).
+# Non-x86_64 also compiles the dlib wheel from source in %%build (see below).
 %ifnarch x86_64
 BuildRequires:  cmake
 BuildRequires:  make
-BuildRequires:  python3-pip
 BuildRequires:  python3-setuptools
 BuildRequires:  python3-wheel
 BuildRequires:  openblas-devel
@@ -99,7 +101,6 @@ wheels bundled in %{authd_home}/wheels — no network access is needed.
 
 %prep
 %autosetup -n %{name}-%{version}
-tar -xf %{SOURCE1}   # -> wheels/
 
 %build
 export CFLAGS="%{optflags}%{?march: -march=%{march}}"
@@ -118,12 +119,21 @@ meson setup %{_vpath_builddir} . \
     -Duser_models_dir=%{_sysconfdir}/secureEye/models
 meson compile -C %{_vpath_builddir}
 
-%ifnarch x86_64
-# build the dlib wheel from source for non-x86_64 arches (aarch64).
-if ! ls wheels/dlib-*.whl >/dev/null 2>&1; then
-    python3 -m pip wheel --no-deps --no-build-isolation --no-cache-dir \
-        --wheel-dir wheels "dlib==%{dlib_version}"
-fi
+# Populate wheels/ with the recognition runtime wheels matching this chroot's
+# Python and arch (installed into the venv by %%post). Downloads from PyPI, so
+# the build needs network — enable "internet access" on the COPR project.
+rm -rf wheels && mkdir -p wheels
+%ifarch x86_64
+python3 -m pip download --only-binary=:all: --no-deps --no-cache-dir \
+    --dest wheels -r requirements-vendor.txt
+%else
+# No mediapipe wheel for this arch; and Fedora/EPEL ship no python3-dlib and
+# there is no prebuilt aarch64 dlib wheel, so compile it from source.
+grep -iv '^[[:space:]]*mediapipe' requirements-vendor.txt > wheels-reqs.txt
+python3 -m pip download --only-binary=:all: --no-deps --no-cache-dir \
+    --dest wheels -r wheels-reqs.txt
+python3 -m pip wheel --no-deps --no-build-isolation --no-cache-dir \
+    --wheel-dir wheels "dlib==%{dlib_version}"
 %endif
 
 %install
@@ -135,7 +145,7 @@ rm -rf %{buildroot}%{_datadir}/dlib-data
 install -d -m 0755 %{buildroot}%{_sysconfdir}/secureEye/models
 
 # sysusers fragment.
-install -D -m 0644 %{SOURCE2} %{buildroot}%{_sysusersdir}/secureeye-authd.conf
+install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secureeye-authd.conf
 
 # Vendored wheels + venv requirements
 install -d -m 0755 %{buildroot}%{authd_home}/wheels
