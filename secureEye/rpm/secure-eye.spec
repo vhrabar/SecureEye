@@ -164,7 +164,7 @@ sed -i 's/^detector_backend = mediapipe/detector_backend = dlib/' \
 %endif
 
 %pre -n secureeye-authd
-%sysusers_create_compat %{SOURCE2}
+%sysusers_create_compat %{_sysusersdir}/secureeye-authd.conf
 
 %post -n secureeye-authd
 %systemd_post secureeye-authd.service
