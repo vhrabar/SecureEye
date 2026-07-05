@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-st/*.rpm.
 set -euxo pipefail
 
 : "${PKG_VERSION:?PKG_VERSION is required}"
