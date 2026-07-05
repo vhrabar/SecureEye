@@ -102,6 +102,45 @@ sudo add-apt-repository ppa:vhrabar/tools
 sudo apt update && sudo apt install secure-eye
 ```
 
+### Fedora, RHEL & RPM-based systems
+
+The easiest way is the
+[COPR repository](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/).
+
+On **Fedora**:
+
+```bash
+sudo dnf copr enable vhrabar/SecureEye
+sudo dnf install secure-eye
+```
+
+On **RHEL / CentOS Stream / Rocky / AlmaLinux** (enable EPEL first for the `copr`
+plugin and dependencies):
+
+```bash
+sudo dnf install epel-release
+sudo dnf copr enable vhrabar/SecureEye
+sudo dnf install secure-eye
+```
+
+This installs the same three packages as on Debian (`libpam-secureeye`,
+`secureeye-authd`, `secure-eye`). On install, `secureeye-authd` builds its
+recognition virtualenv from the bundled wheels and enables the
+`secureeye-authd.service`.
+
+Alternatively, download the `.rpm` files from the
+[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and install
+them together:
+
+```bash
+sudo dnf install ./libpam-secureeye-*.rpm ./secureeye-authd-*.rpm ./secure-eye-*.rpm
+```
+
+> [!NOTE]
+> On Fedora/RHEL there is no `pam-auth-update`, so the PAM module is **not**
+> enabled automatically. Enable it as shown in **Usage step 3b** below (the
+> Debian-only `pam-auth-update` / `common-auth` steps do not apply).
+
 ---
 
 ## Usage
@@ -124,13 +163,34 @@ you later:
 sudo secureEye add
 ```
 
-**3. Make sure the PAM profile is enabled.** It is normally enabled automatically
-on install, but `pam-auth-update` will skip a profile it has already "seen" from a
-previous install. Verify (and enable if needed):
+**3. Make sure the PAM profile is enabled.**
+
+**3a) Ubuntu / Debian.** It is normally enabled automatically on install, but
+`pam-auth-update` will skip a profile it has already "seen" from a previous
+install. Verify (and enable if needed):
 
 ```bash
 grep -q pam_secureEye.so /etc/pam.d/common-auth && echo enabled || sudo pam-auth-update --enable secureEye.pam-config
 ```
+
+**3b) Fedora / RHEL.** There is no `pam-auth-update`; enable the module with an
+authselect custom profile:
+
+```bash
+sudo authselect create-profile secureeye -b local
+# Add this line near the top of the auth section of
+# /etc/authselect/custom/secureeye/{system,password}-auth:
+#   auth  sufficient  pam_secureEye.so
+sudo authselect select custom/secureeye --force
+```
+
+Or, for a single service (e.g. `sudo` only), add to `/etc/pam.d/sudo`:
+
+```
+auth  sufficient  pam_secureEye.so
+```
+
+Do **not** edit `/etc/pam.d/system-auth` directly as authselect overwrites it.
 
 **4. Try it.** Open a new terminal and run `sudo -i` — you should be able to
 authenticate by showing your face. If face auth fails or times out, SecureEye
