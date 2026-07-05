@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-st/*.rpm.
 set -euxo pipefail
 
 : "${PKG_VERSION:?PKG_VERSION is required}"
@@ -9,8 +8,8 @@ dnf install -y --setopt=install_weak_deps=False \
     rpm-build rpmdevtools rpmlint git-core tar gzip \
     meson ninja-build gcc-c++ pkgconf-pkg-config \
     pam-devel libevdev-devel inih-devel \
-    python3-devel python3-pip systemd-rpm-macros \
-    cmake
+    python3-devel python3-pip python3-setuptools python3-wheel systemd-rpm-macros \
+    cmake make openblas-devel libjpeg-turbo-devel libpng-devel
 
 git config --global --add safe.directory "$PWD"
 rpmdev-setuptree

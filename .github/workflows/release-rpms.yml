@@ -67,7 +67,6 @@ jobs:
       # Cache the from-source dlib wheel on aarch64
       - name: Cache dlib wheel
         if: matrix.name == 'aarch64'
-        if: matrix.name == 'aarch64'
         uses: actions/cache@v4
         with:
           path: wheels-cache
