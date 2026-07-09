@@ -62,7 +62,7 @@ jobs:
           DEBFULLNAME: "Vedran Hrabar"
 
           DEBIAN_DIR: "secureEye/debian"
-          SERIES: "questing resolute"
+          SERIES: "questing resolute stonking"
 
           NEW_VERSION_TEMPLATE: "{VERSION}~{SERIES}{REVISION}"
 
