@@ -1,20 +1,27 @@
+import configparser
 import json
 import os
 import signal
 import socket
 import struct
 import sys
+import syslog
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
 
+import paths_factory
 from auth import ExitCode, AuthSession
+from auth.detector_factory import create_detector
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
 PROTO_VERSION = 1
 MAX_PAYLOAD = 4096
 DEFAULT_DEADLINE_MS = 2500
 INTERNAL_ERROR_CODE = 99
+
+# time between the daemon's own worker deadline and the client's transport deadline
+RESPONSE_MARGIN_MS = 700
 
 
 @dataclass
@@ -153,7 +160,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
         payload = _read_frame(conn)
         req = _validate_payload(payload)
 
-        worker_timeout = max(0.1, (req.deadline_ms - 300) / 1000.0)
+        worker_timeout = max(0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0)
 
         # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
         session = AuthSession()
@@ -203,12 +210,29 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
             pass
 
 
+def _warm_detector() -> None:
+    """
+    Build (and cache) the configured detector before serving requests.
+    """
+    try:
+        config = configparser.ConfigParser()
+        config.read(paths_factory.config_file_path())
+        create_detector(config)
+    except Exception as exc:
+        syslog.syslog(
+            syslog.LOG_WARNING,
+            f"secureeye-authd: detector warmup skipped: {exc}",
+        )
+
+
 def main() -> int:
     stop = threading.Event()
 
     # setup signal handling
     signal.signal(signal.SIGINT, lambda signum, _frame: stop.set())
     signal.signal(signal.SIGTERM, lambda signum, _frame: stop.set())
+
+    _warm_detector()
 
     # setup socket
     srv = _prepare_socket(SOCKET_PATH)
