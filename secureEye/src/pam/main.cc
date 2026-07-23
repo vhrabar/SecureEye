@@ -602,7 +602,7 @@ auto identify(pam_handle_t *pamh, int flags, int argc, const char **argv,
       video_timeout_s > 0 ? static_cast<std::int64_t>(video_timeout_s) * 1000
                           : static_cast<std::int64_t>(AUTH_TIMEOUT_MS);
   const auto auth_timeout_ms = static_cast<int>(
-      std::clamp<std::int64_t>(configured_timeout_ms + 1500, 1000, 30000));
+      std::clamp<std::int64_t>(configured_timeout_ms + 1900, 1000, 30000));
 
   // NOTE: We should replace mutex and condition_variable by atomic wait, but
   // it's too recent (C++20)
