@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Any
 
 
 class DetectorFactoryError(RuntimeError):
     """Raised when a detector backend cannot be initialized."""
+
+
+# cache build detector
+_detector_cache: dict[tuple, DetectorBundle] = {}
+_detector_cache_lock = threading.Lock()
+
+
+def _cache_key(config) -> tuple:
+    backend = config.get("core", "detector_backend", fallback="dlib").strip().lower()
+    use_cnn = config.getboolean("core", "use_cnn", fallback=False)
+    return (backend, use_cnn)
 
 
 @dataclass
@@ -23,6 +35,22 @@ def _is_missing_module(exc: ModuleNotFoundError, *candidates: str) -> bool:
 
 
 def create_detector(config) -> DetectorBundle:
+    """Return a detector backend for ``config``, building it once and caching it.
+
+    The first call for a given backend configuration builds the backend; every
+    subsequent call reuses the cached bundle.
+    """
+    key = _cache_key(config)
+    with _detector_cache_lock:
+        cached = _detector_cache.get(key)
+        if cached is not None:
+            return cached
+        bundle = _build_detector(config)
+        _detector_cache[key] = bundle
+        return bundle
+
+
+def _build_detector(config) -> DetectorBundle:
     """Create a detector backend from config.
 
     Supported values for [core] detector_backend:

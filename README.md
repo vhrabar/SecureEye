@@ -1,8 +1,7 @@
 # SecureEye
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/pytests.yml?style=for-the-badge&label=tests&logo=pytest&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/pytests.yml)
-[![Lint](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/lint.yml?style=for-the-badge&label=lint&logo=ruff&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/lint.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/CodeQL.yml?style=for-the-badge&label=codeql&logo=github)](https://github.com/vhrabar/SecureEye/actions/workflows/CodeQL.yml)
+[![Copr build status](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/)
 
 [![Latest release](https://img.shields.io/github/v/release/vhrabar/SecureEye?include_prereleases&sort=semver&style=for-the-badge&logo=github)](https://github.com/vhrabar/SecureEye/releases)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#)
@@ -53,11 +52,20 @@ These mirror the package `Build-Depends` in `secureEye/debian/control`:
 
 #### Install Dependencies
 
+On **Debian / Ubuntu**:
+
 ```bash
 sudo apt-get update && sudo apt-get install -y \
     meson ninja-build pkg-config build-essential \
     python3 python3-pip python3-venv \
     libpam0g-dev libinih-dev libevdev-dev
+```
+
+On **Arch Linux** (`libinih` provides `INIReader`, `pam` provides the PAM headers):
+
+```bash
+sudo pacman -S --needed base-devel meson ninja pkgconf \
+    python python-pip pam libinih libevdev
 ```
 
 #### Build
@@ -68,13 +76,14 @@ meson compile -C build
 ```
 
 > [!WARNING]
-> Do **not** run `meson install` on a machine where you also use the `.deb`
-> packages. Meson's default prefix is `/usr/local`, and `/usr/local/lib/...`
-> shadows the packaged `/usr/lib/...` systemd unit (and `/usr/local/bin` shadows
-> `/usr/bin`), which breaks the daemon and CLI. A bare `meson install` also does
-> **not** create the recognition virtualenv, that is built by the
-> `secureeye-authd` package at install time, so the daemon will not start.
-> For a working system install, build, and install the Debian packages below.
+> Do **not** run `meson install` on a machine where you also use the packaged
+> builds (`.deb`, `.rpm` or the AUR package). Meson's default prefix is
+> `/usr/local`, and `/usr/local/lib/...` shadows the packaged `/usr/lib/...`
+> systemd unit (and `/usr/local/bin` shadows `/usr/bin`), which breaks the
+> daemon and CLI. On Debian and Fedora a bare `meson install` also does **not**
+> create the recognition virtualenv, that is built by the `secureeye-authd`
+> package at install time, so the daemon will not start. For a working system
+> install, build and install your distribution's packages below.
 
 ### Debian / Ubuntu & derivatives
 
@@ -141,6 +150,50 @@ sudo dnf install ./libpam-secureeye-*.rpm ./secureeye-authd-*.rpm ./secure-eye-*
 > enabled automatically. Enable it as shown in **Usage step 3b** below (the
 > Debian-only `pam-auth-update` / `common-auth` steps do not apply).
 
+### Arch Linux & derivatives
+
+SecureEye is packaged for the AUR as `secureeye`, which builds two packages:
+
+- `libpam-secureeye`: the C/C++ PAM module (no Python)
+- `secureeye-authd`: the authentication daemon and Python recognition runtime
+
+There is no transitional metapackage; install both. With an AUR helper:
+
+```bash
+paru -S libpam-secureeye secureeye-authd   # or: yay -S ...
+```
+
+Or manually with `makepkg` (the recognition dependencies `python-mediapipe`
+and `python-sounddevice` also come from the AUR and must be built first):
+
+```bash
+git clone https://aur.archlinux.org/secureeye.git
+cd secureeye
+makepkg -si
+```
+
+You can also build straight from a checkout of this repository:
+
+```bash
+cd secureEye/archlinux/secureEye
+makepkg -si
+```
+
+Unlike the `.deb`/`.rpm` packages, the Arch build does **not** bundle a recognition virtualenv: every dependency is a
+real package and the daemon runs on the system interpreter, so there is nothing to rebuild after a Python upgrade. On
+`aarch64` there is no MediaPipe, so the package depends on
+`python-dlib` and ships `detector_backend = dlib` in the default config.
+
+Following Arch policy, the service is **not** started for you:
+
+```bash
+sudo systemctl enable --now secureeye-authd.service
+```
+
+> [!NOTE]
+> Arch has neither `pam-auth-update` nor `authselect`, so the PAM module is
+> **not** enabled automatically. Enable it as shown in **Usage step 3c** below.
+
 ---
 
 ## Usage
@@ -191,6 +244,19 @@ auth  sufficient  pam_secureEye.so
 ```
 
 Do **not** edit `/etc/pam.d/system-auth` directly as authselect overwrites it.
+
+**3c) Arch Linux.** There is no `pam-auth-update` and no `authselect`; edit the PAM stack yourself. For a single service
+(recommended, e.g. `sudo` only), add this as the **first** `auth` line of `/etc/pam.d/sudo`:
+
+```
+auth  sufficient  pam_secureEye.so
+```
+
+To cover every service that includes it (login, `sudo`, display-manager greeters, `polkit`), add the same line at the
+top of the `auth` section of
+`/etc/pam.d/system-auth` instead. That file belongs to the `pam` package, so back it up and re-apply your change when
+pacman leaves a `system-auth.pacnew`
+after an upgrade.
 
 **4. Try it.** Open a new terminal and run `sudo -i` — you should be able to
 authenticate by showing your face. If face auth fails or times out, SecureEye
