@@ -3,10 +3,8 @@
     <qresource prefix="/">
         <!-- QMLs -->
         <file>qml/main.qml</file>
-        <file>qml/pages/Dashboard.qml</file>
 
         <!-- icons -->
         <file>icons/logo.svg</file>
-        <file>icons/dot.svg</file>
     </qresource>
 </RCC>
