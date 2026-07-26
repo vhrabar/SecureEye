@@ -32,7 +32,8 @@ jobs:
       - name: "Build C++ project"
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build libpam0g-dev libinih-dev libevdev-dev qt6-base-dev qt6-base-dev-tools gettext
+          sudo apt-get install -y meson ninja-build libpam0g-dev libinih-dev libevdev-dev \
+            qt6-base-dev qt6-base-dev-tools qt6-declarative-dev qt6-declarative-dev-tools gettext
           meson setup build
           ninja -C build
 

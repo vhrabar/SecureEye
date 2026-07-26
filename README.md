@@ -51,13 +51,26 @@ These mirror the package `Build-Depends` in `secureEye/debian/control`:
   `libinih-dev`; it is **not** downloaded, the build runs with
   `--wrap-mode=nodownload`)
 
+The Qt GUI (`secureeye-gui`) is built from the same tree and needs Qt 6 on top
+of the list above (it is not part of the `.deb` packages yet):
+
+- `qt6-base-dev`, `qt6-base-dev-tools` (Core, Gui, Network)
+- `qt6-declarative-dev`, `qt6-declarative-dev-tools` (Qml, Quick,
+  QuickControls2, plus `qmlcachegen`/`qmltyperegistrar`)
+- At **runtime** only: `qml6-module-org-kde-kirigami` and
+  `libkf6qqc2desktopstyle-data` (the QML `org.kde.kirigami` import and the
+  `org.kde.desktop` Quick Controls style)
+
 #### Install Dependencies
 
 ```bash
 sudo apt-get update && sudo apt-get install -y \
     meson ninja-build pkg-config build-essential \
     python3 python3-pip python3-venv \
-    libpam0g-dev libinih-dev libevdev-dev
+    libpam0g-dev libinih-dev libevdev-dev \
+    qt6-base-dev qt6-base-dev-tools \
+    qt6-declarative-dev qt6-declarative-dev-tools \
+    qml6-module-org-kde-kirigami libkf6qqc2desktopstyle-data
 ```
 
 #### Build
