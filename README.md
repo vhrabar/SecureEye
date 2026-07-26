@@ -10,7 +10,7 @@
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/CodeQL.yml?style=for-the-badge&label=codeql&logo=github)](https://github.com/vhrabar/SecureEye/actions/workflows/CodeQL.yml)
 
 [![Latest release](https://img.shields.io/github/v/release/vhrabar/SecureEye?include_prereleases&sort=semver&style=for-the-badge&logo=github)](https://github.com/vhrabar/SecureEye/releases)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#status)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-orange?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 Modern face recognition authentication for Linux using PAM.
@@ -193,7 +193,7 @@ secureEye [-U user] [-y] command [argument]
 ### Requirements
 
 * Python 3.12+
-* pip / virtualenv
+* uv / pip / virtualenv
 
 ### Docker PAM Automation
 
@@ -239,6 +239,8 @@ See the NOTICE file and `/licenses/MIT.txt` for details.
 
 This project is inspired by the Howdy project.
 Original authors and contributors are credited via the preserved Git history.
+
+The project logo and banner were created with AI assistance.
 
 ---
 
