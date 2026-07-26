@@ -1,0 +1,10 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <!-- QMLs -->
+        <file>qml/main.qml</file>
+
+        <!-- icons -->
+        <file>icons/logo.svg</file>
+    </qresource>
+</RCC>

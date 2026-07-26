@@ -135,3 +135,6 @@ debian/howdy
 
 # Meson
 subprojects/
+
+# dev sandbox (GUI/camera-test runs against this instead of /etc/secureEye)
+.devroot/

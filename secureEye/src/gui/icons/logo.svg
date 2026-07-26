@@ -1,0 +1,26 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SecureEye icon">
+  <title>SecureEye</title>
+  <desc>A camera aperture forming an iris - facial authentication for Linux.</desc>
+
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="#1e2327"/>
+
+  <!-- outer iris ring -->
+  <circle cx="256" cy="256" r="168" fill="none" stroke="#f1f5f9" stroke-width="14"/>
+
+  <!-- aperture blades (pinwheel) -->
+  <g stroke="#2dd4bf" stroke-width="13" stroke-linecap="round">
+    <line x1="318" y1="256" x2="340" y2="402"/>
+    <line x1="287" y1="310" x2="172" y2="402"/>
+    <line x1="225" y1="310" x2="88"  y2="256"/>
+    <line x1="194" y1="256" x2="172" y2="110"/>
+    <line x1="225" y1="202" x2="340" y2="110"/>
+    <line x1="287" y1="202" x2="424" y2="256"/>
+  </g>
+
+  <!-- hexagonal opening -->
+  <polygon points="318,256 287,310 225,310 194,256 225,202 287,202"
+           fill="none" stroke="#f1f5f9" stroke-width="11" stroke-linejoin="round"/>
+
+  <!-- pupil -->
+  <circle cx="256" cy="256" r="27" fill="#2dd4bf"/>
+</svg>

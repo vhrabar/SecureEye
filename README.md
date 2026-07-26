@@ -1,10 +1,15 @@
+<!-- Light mode -->
+![Logo (light)](assets/secureeye-banner-light.svg#gh-light-mode-only)
+
+<!-- Dark mode -->
+![Logo (dark)](assets/secureeye-banner.svg#gh-dark-mode-only)
 # SecureEye
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/pytests.yml?style=for-the-badge&label=tests&logo=pytest&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/pytests.yml)
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/)
 
 [![Latest release](https://img.shields.io/github/v/release/vhrabar/SecureEye?include_prereleases&sort=semver&style=for-the-badge&logo=github)](https://github.com/vhrabar/SecureEye/releases)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#status)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-orange?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 Modern face recognition authentication for Linux using PAM.
@@ -50,6 +55,16 @@ These mirror the package `Build-Depends` in `secureEye/debian/control`:
   `libinih-dev`; it is **not** downloaded, the build runs with
   `--wrap-mode=nodownload`)
 
+The Qt GUI (`secureeye-gui`) is built from the same tree and needs Qt 6 on top
+of the list above (it is not part of the `.deb` packages yet):
+
+- `qt6-base-dev`, `qt6-base-dev-tools` (Core, Gui, Network)
+- `qt6-declarative-dev`, `qt6-declarative-dev-tools` (Qml, Quick,
+  QuickControls2, plus `qmlcachegen`/`qmltyperegistrar`)
+- At **runtime** only: `qml6-module-org-kde-kirigami` and
+  `libkf6qqc2desktopstyle-data` (the QML `org.kde.kirigami` import and the
+  `org.kde.desktop` Quick Controls style)
+
 #### Install Dependencies
 
 On **Debian / Ubuntu**:
@@ -58,7 +73,10 @@ On **Debian / Ubuntu**:
 sudo apt-get update && sudo apt-get install -y \
     meson ninja-build pkg-config build-essential \
     python3 python3-pip python3-venv \
-    libpam0g-dev libinih-dev libevdev-dev
+    libpam0g-dev libinih-dev libevdev-dev \
+    qt6-base-dev qt6-base-dev-tools \
+    qt6-declarative-dev qt6-declarative-dev-tools \
+    qml6-module-org-kde-kirigami libkf6qqc2desktopstyle-data
 ```
 
 On **Arch Linux** (`libinih` provides `INIReader`, `pam` provides the PAM headers):
@@ -301,7 +319,7 @@ secureEye [-U user] [-y] command [argument]
 ### Requirements
 
 * Python 3.12+
-* pip / virtualenv
+* uv / pip / virtualenv
 
 ### Docker PAM Automation
 
@@ -347,6 +365,8 @@ See the NOTICE file and `/licenses/MIT.txt` for details.
 
 This project is inspired by the Howdy project.
 Original authors and contributors are credited via the preserved Git history.
+
+The project logo and banner were created with AI assistance.
 
 ---
 
