@@ -42,3 +42,10 @@ install_data(
     install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'applications'),
     install_tag : 'gui',
 )
+
+install_data(
+    'icons/logo.svg',
+    rename : 'secureeye.svg',
+    install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'),
+    install_tag : 'gui',
+)

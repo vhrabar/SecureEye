@@ -7,6 +7,7 @@
 
 namespace {
 constexpr auto kMainQml = "qrc:/qml/main.qml";
+constexpr auto kAppIcon = ":/icons/logo.svg";
 }
 
 Application::Application(int &argc, char **argv): QGuiApplication(argc, argv){
@@ -16,7 +17,7 @@ Application::Application(int &argc, char **argv): QGuiApplication(argc, argv){
 
     setDesktopFileName("secureeye-gui");
     QIcon::setFallbackThemeName("breeze");
-    setWindowIcon(QIcon::fromTheme("secureeye"));
+    setWindowIcon(QIcon::fromTheme("secureeye", QIcon(QString::fromLatin1(kAppIcon))));
 
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
         QQuickStyle::setStyle("org.kde.desktop");
