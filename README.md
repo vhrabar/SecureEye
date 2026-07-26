@@ -1,3 +1,8 @@
+<!-- Light mode -->
+![Logo (light)](assets/secureeye-banner-light.svg#gh-light-mode-only)
+
+<!-- Dark mode -->
+![Logo (dark)](assets/secureeye-banner.svg#gh-dark-mode-only)
 # SecureEye
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/pytests.yml?style=for-the-badge&label=tests&logo=pytest&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/pytests.yml)
