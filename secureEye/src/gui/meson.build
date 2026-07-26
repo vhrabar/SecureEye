@@ -1,10 +1,10 @@
 qt6 = import('qt6')
-qt6_dep = dependency('qt6', modules : ['Core', 'Gui', 'Widgets', 'Network'])
-
+qt6_dep = dependency('qt6', modules : ['Core', 'Gui', 'Qml', 'Quick', 'QuickControls2', 'Network'])
 moc_files = qt6.preprocess(
     moc_headers : [
-        'main_window.hpp',
+        'src/app/Application.hpp',
     ],
+    qresources : ['secureeye-gui.qrc'],
     dependencies : qt6_dep,
 )
 
@@ -19,8 +19,8 @@ gui_paths_h = configure_file(
 )
 
 gui_sources = [
-    'main.cpp',
-    'main_window.cpp',
+    'src/main.cpp',
+    'src/app/Application.cpp',
     gui_paths_h,
 ]
 
