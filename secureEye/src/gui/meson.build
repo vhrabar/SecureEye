@@ -2,13 +2,31 @@ qt6 = import('qt6')
 qt6_dep = dependency('qt6', modules : ['Core', 'Gui', 'Widgets', 'Network'])
 
 moc_files = qt6.preprocess(
-    moc_headers : [],
+    moc_headers : [
+        'main_window.hpp',
+    ],
     dependencies : qt6_dep,
 )
 
+gui_conf_data = configuration_data(paths_dict)
+gui_conf_data.set('config_file_path', config_path)
+gui_conf_data.set('py_sources_dir', pysourcesrootdir)
+
+gui_paths_h = configure_file(
+    #input : 'paths.hh.in',
+    output : 'paths.hh',
+    configuration : gui_conf_data,
+)
+
+gui_sources = [
+    'main.cpp',
+    'main_window.cpp',
+    gui_paths_h,
+]
+
 executable(
     'secureeye-gui',
-    'main.cc',
+    gui_sources,
     moc_files,
     dependencies : [qt6_dep],
     cpp_args : [
@@ -16,5 +34,11 @@ executable(
     ],
     install : true,
     install_dir : get_option('bindir'),
+    install_tag : 'gui',
+)
+
+install_data(
+    'secureeye-gui.desktop',
+    install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'applications'),
     install_tag : 'gui',
 )

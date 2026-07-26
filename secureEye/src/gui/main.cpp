@@ -1,8 +1,8 @@
 #include <QApplication>
 
-#include "main_window.hh"
+#include "main_window.hpp"
 
-int main(int argc, char *argv[]) {
+auto main(int argc, char *argv[]) -> int {
   QApplication app(argc, argv);
   QCoreApplication::setOrganizationName("vhrabar");
   QCoreApplication::setOrganizationDomain("vhrabar.github.io");
@@ -12,5 +12,5 @@ int main(int argc, char *argv[]) {
   window.resize(500, 400);
   window.show();
 
-  return app.exec();
+  return QApplication::exec();
 }

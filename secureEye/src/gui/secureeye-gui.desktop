@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SecureEye
+Comment=Facial authentication for Linux
+Exec=secureeye-gui
+Icon=secureeye
+Terminal=false
+Categories=Settings;Security;
