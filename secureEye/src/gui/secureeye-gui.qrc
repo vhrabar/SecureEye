@@ -4,6 +4,7 @@
         <!-- QMLs -->
         <file>qml/main.qml</file>
         <file>qml/pages/Dashboard.qml</file>
+        <file>qml/pages/Configuration.qml</file>
 
         <!-- icons -->
         <file>icons/logo.svg</file>
