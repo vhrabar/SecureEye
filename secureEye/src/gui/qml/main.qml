@@ -6,16 +6,14 @@ import "pages"
 Kirigami.ApplicationWindow {
     id: root
 
+    property Component currentPage: dashboardComponent
+
     title: "SecureEye Manager"
 
     height: 900
     width: 1440
 
-    pageStack.initialPage: Dashboard {
-
-        id: dashboardPage
-    }
-
+    pageStack.initialPage: dashboardComponent
 
     globalDrawer: Kirigami.GlobalDrawer {
         collapsible: true
@@ -25,12 +23,39 @@ Kirigami.ApplicationWindow {
 
         actions: [
             Kirigami.Action {
-                checked: root.pageStack.currentItem === dashboardPage
-                icon.source: "qrc:/icons/dot.svg"
+                checked: root.currentPage === dashboardComponent
+                icon.name: "dashboard-show"
                 text: "Dashboard"
 
-                onTriggered: root.pageStack.replace()
+                onTriggered: root.showPage(dashboardComponent)
+            },
+            Kirigami.Action {
+                checked: root.currentPage === configComponent
+                icon.name: "settings-configure"
+                text: "Configuration"
+
+                onTriggered: root.showPage(configComponent)
             }
         ]
+    }
+
+    Component {
+        id: dashboardComponent
+
+        Dashboard {}
+    }
+    Component {
+        id: configComponent
+
+        Configuration {}
+    }
+
+    // Swap the root of the page stack, dropping anything pushed on top of it.
+    function showPage(page: Component) {
+        if (root.currentPage === page) {
+            return;
+        }
+        root.currentPage = page;
+        root.pageStack.replace(page);
     }
 }
