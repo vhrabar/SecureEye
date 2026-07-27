@@ -33,7 +33,8 @@ certainty = 3.5
 dark_threshold = 60
 exposure = -1
 recording_plugin = opencv
-""".strip() + "\n",
+""".strip()
+        + "\n",
         encoding="utf-8",
     )
 

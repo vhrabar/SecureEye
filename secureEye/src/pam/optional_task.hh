@@ -26,7 +26,8 @@ public:
 
 template <typename T>
 optional_task<T>::optional_task(std::function<T()> func)
-    : task(std::packaged_task<T()>(std::move(func))), future(task.get_future()) {}
+    : task(std::packaged_task<T()>(std::move(func))),
+      future(task.get_future()) {}
 
 // Create a new thread and launch the task on it.
 template <typename T> void optional_task<T>::activate() {

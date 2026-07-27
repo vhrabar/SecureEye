@@ -4,23 +4,23 @@
 #include <cstdlib>
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <glob.h>
 #include <libintl.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdexcept>
-#include <fcntl.h>
-#include <poll.h>
-#include <sys/socket.h>
 #include <sys/signalfd.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <sys/syslog.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <syslog.h>
 #include <unistd.h>
 
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstring>
 #include <fstream>
@@ -76,8 +76,8 @@ auto get_pam_item_str(pam_handle_t *pamh, int item_type) -> std::string {
   return static_cast<const char *>(item);
 }
 
-auto get_remaining_timeout_ms(const std::chrono::steady_clock::time_point &deadline)
-    -> int {
+auto get_remaining_timeout_ms(
+    const std::chrono::steady_clock::time_point &deadline) -> int {
   const auto now = std::chrono::steady_clock::now();
   if (now >= deadline) {
     return 0;
@@ -98,9 +98,7 @@ auto wait_socket_event(int sock_fd, std::int16_t events,
     }
 
     struct pollfd pfd {
-      .fd = sock_fd,
-      .events = events,
-      .revents = 0,
+      .fd = sock_fd, .events = events, .revents = 0,
     };
 
     const auto poll_res = poll(&pfd, 1, timeout_ms);
@@ -119,7 +117,8 @@ auto wait_socket_event(int sock_fd, std::int16_t events,
   }
 }
 
-auto connect_authd(const std::chrono::steady_clock::time_point &deadline) -> int {
+auto connect_authd(const std::chrono::steady_clock::time_point &deadline)
+    -> int {
   int sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (sock_fd < 0) {
     return -1;
@@ -139,8 +138,8 @@ auto connect_authd(const std::chrono::steady_clock::time_point &deadline) -> int
   }
   strncpy(addr.sun_path, AUTHD_SOCKET_PATH, sizeof(addr.sun_path) - 1);
 
-  const auto connect_res =
-      connect(sock_fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
+  const auto connect_res = connect(
+      sock_fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
   if (connect_res == 0) {
     return sock_fd;
   }
@@ -157,7 +156,8 @@ auto connect_authd(const std::chrono::steady_clock::time_point &deadline) -> int
 
   int so_error = 0;
   socklen_t so_error_len = sizeof(so_error);
-  if (getsockopt(sock_fd, SOL_SOCKET, SO_ERROR, &so_error, &so_error_len) != 0 ||
+  if (getsockopt(sock_fd, SOL_SOCKET, SO_ERROR, &so_error, &so_error_len) !=
+          0 ||
       so_error != 0) {
     close(sock_fd);
     return -1;
@@ -264,21 +264,19 @@ auto read_authd_response_code(const std::string &payload,
 
 auto authd_authenticate(pam_handle_t *pamh, const std::string &username,
                         int auth_timeout_ms) -> int {
-  const auto deadline =
-      std::chrono::steady_clock::now() + std::chrono::milliseconds(auth_timeout_ms);
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(auth_timeout_ms);
   const auto request_id = make_request_id();
   const auto service = get_pam_item_str(pamh, PAM_SERVICE);
   const auto tty = get_pam_item_str(pamh, PAM_TTY);
   const auto rhost = get_pam_item_str(pamh, PAM_RHOST);
-  const auto payload = R"({"v":)" + std::to_string(AUTH_PROTOCOL_VERSION) +
-                       R"(,"type":"auth_request","request_id":")" +
-                       json_escape(request_id) +
-                       R"(","username":")" + json_escape(username) +
-                       R"(","service":")" + json_escape(service) +
-                       R"(","tty":")" + json_escape(tty) +
-                       R"(","rhost":")" + json_escape(rhost) +
-                       R"(","deadline_ms":)" +
-                       std::to_string(auth_timeout_ms) + "}";
+  const auto payload =
+      R"({"v":)" + std::to_string(AUTH_PROTOCOL_VERSION) +
+      R"(,"type":"auth_request","request_id":")" + json_escape(request_id) +
+      R"(","username":")" + json_escape(username) + R"(","service":")" +
+      json_escape(service) + R"(","tty":")" + json_escape(tty) +
+      R"(","rhost":")" + json_escape(rhost) + R"(","deadline_ms":)" +
+      std::to_string(auth_timeout_ms) + "}";
 
   if (payload.size() > MAX_IPC_PAYLOAD) {
     return AUTHD_INTERNAL_ERROR;
@@ -332,7 +330,7 @@ auto authd_authenticate(pam_handle_t *pamh, const std::string &username,
  * @return               A PAM return code
  */
 auto secureEye_error(int status,
-                 const std::function<int(int, const char *)> &conv_function)
+                     const std::function<int(int, const char *)> &conv_function)
     -> int {
   switch (status) {
   case CompareError::NO_FACE_MODEL:
@@ -376,9 +374,9 @@ auto secureEye_error(int status,
  * @param  conv_function PAM conversation function
  * @return          Returns the conversation function return code
  */
-auto secureEye_status(char *username, int status, const INIReader &config,
-                  const std::function<int(int, const char *)> &conv_function)
-    -> int {
+auto secureEye_status(
+    char *username, int status, const INIReader &config,
+    const std::function<int(int, const char *)> &conv_function) -> int {
   if (status != EXIT_SUCCESS) {
     return secureEye_error(status, conv_function);
   }
@@ -626,20 +624,22 @@ auto identify(pam_handle_t *pamh, int flags, int argc, const char **argv,
   auth_task.activate();
 
   // This task waits for the password input (if the workaround wants it)
-  optional_task<std::tuple<int, char *>> pass_task([&]() -> std::tuple<int, char *> {
-    char *auth_tok_ptr = nullptr;
-    int pam_res = pam_get_authtok(
-        pamh, PAM_AUTHTOK, const_cast<const char **>(&auth_tok_ptr), nullptr);
-    {
-      std::unique_lock<std::mutex> lock(mutx);
-      if (confirmation_type == ConfirmationType::Unset) {
-        confirmation_type = ConfirmationType::Pam;
-      }
-    }
-    convar.notify_one();
+  optional_task<std::tuple<int, char *>> pass_task(
+      [&]() -> std::tuple<int, char *> {
+        char *auth_tok_ptr = nullptr;
+        int pam_res =
+            pam_get_authtok(pamh, PAM_AUTHTOK,
+                            const_cast<const char **>(&auth_tok_ptr), nullptr);
+        {
+          std::unique_lock<std::mutex> lock(mutx);
+          if (confirmation_type == ConfirmationType::Unset) {
+            confirmation_type = ConfirmationType::Pam;
+          }
+        }
+        convar.notify_one();
 
-    return {pam_res, auth_tok_ptr};
-  });
+        return {pam_res, auth_tok_ptr};
+      });
 
   auto ask_pass = ask_auth_tok && workaround != Workaround::Off;
 

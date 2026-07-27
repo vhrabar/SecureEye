@@ -4,24 +4,22 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
-class Application : public QGuiApplication{
-	Q_OBJECT
+class Application : public QGuiApplication {
+  Q_OBJECT
 
 public:
-	Application(int &argc, char **argv);
-	~Application() override;
+  Application(int &argc, char **argv);
+  ~Application() override;
 
-	bool bootstrap();
+  bool bootstrap();
 
 private:
-	void createServices();
-	void exposeToQml();
-	void loadQml();
+  void createServices();
+  void exposeToQml();
+  void loadQml();
 
-	QQmlApplicationEngine m_engine;
-	bool m_qmlLoaded = false;
+  QQmlApplicationEngine m_engine;
+  bool m_qmlLoaded = false;
 };
 
-
-
-#endif //SECUREEYE_APPLICATION_HPP
+#endif // SECUREEYE_APPLICATION_HPP

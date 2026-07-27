@@ -23,18 +23,11 @@ package = false
 
 [dependency-groups]
 dev = [
-	"pytest",
-	"black",
-	"ruff",
+	"pytest==9.1.1",
+	"ruff==0.16.0",
+	"mypy==2.3.0",
+	"numpy==2.3.4",
 ]
-
-[tool.black]
-line-length = 100
-target-version = ['py312']
-skip-string-normalization = false
-extend-exclude = '''
-/(build|buildDir|build-ppa|\.venv)/
-'''
 
 [tool.ruff]
 line-length = 100
@@ -42,7 +35,16 @@ extend-exclude = ["build", "buildDir", "build-ppa", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "C", "B"]
-ignore = ["RUF001", "E501"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["secureEye/src", "tests"]
+mypy_path = ["secureEye/src"]
+namespace_packages = false
+
+ignore_missing_imports = true
+exclude = '(^|/)(build|buildDir|build-ppa|obj-x86_64-linux-gnu|\.venv)/'
 
 [tool.pytest.ini_options]
 markers = [

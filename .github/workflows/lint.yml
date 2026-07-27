@@ -1,27 +1,67 @@
-name: Lint
+name: Lint and Static Checks
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [dev]
   pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   python:
-    name: Python (ruff + black)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # uv package manager
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
+          python-version: "3.12"
           enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
 
-      - name: Install dev tools
+      # dev tools only (ruff/mypy/pytest/numpy); the runtime deps
+      # (mediapipe, keras, opencv) are not needed to lint and cost ~500 MB
+      - name: Install dev dependencies
         run: uv sync --only-dev
 
-      - name: Ruff
-        run: uv run --no-sync ruff check .
+      # run formatters and linters
+      - name: Ruff format
+        run: uv run --no-sync ruff format --check .
 
-      - name: Black
-        run: uv run --no-sync black --check .
+      - name: Ruff lint
+        run: uv run --no-sync ruff check --output-format=github .
+
+      # MyPy static type checker (paths come from [tool.mypy] files= in pyproject.toml)
+#      - name: Mypy
+#        run: uv run --no-sync mypy
+
+  clang-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # uv package manager
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # Clang-format
+      - name: Check C++/CUDA formatting
+        run: |
+          FILES=$(git ls-files | grep -E '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|cu|cuh)$' || true)
+          if [ -n "$FILES" ]; then
+            uvx clang-format@18.1.8 --dry-run --Werror $FILES
+          else
+            echo "No C++ files to check."
+          fi

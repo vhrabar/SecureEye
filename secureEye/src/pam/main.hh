@@ -1,10 +1,10 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <unistd.h>
-#include <cstdint>
 
 enum class ConfirmationType : std::uint8_t { Unset, SecureEye, Pam };
 enum class Workaround : std::uint8_t { Off, Input, Native };

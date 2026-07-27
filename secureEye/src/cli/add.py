@@ -207,5 +207,8 @@ with open(enc_file, "w") as datafile:
     json.dump(encodings, datafile)
 
 # Give let the user know how it went
-print(_("""\nScan complete
-Added a new model to """) + user)
+print(
+    _("""\nScan complete
+Added a new model to """)
+    + user
+)

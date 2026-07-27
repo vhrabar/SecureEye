@@ -36,12 +36,14 @@ exposure = config.getint("video", "exposure", fallback=-1)
 dark_threshold = config.getfloat("video", "dark_threshold", fallback=60)
 
 # Let the user know what's up
-print(_("""
+print(
+    _("""
 Opening a window with a test feed
 
 Press ctrl+C in this terminal to quit
 Click on the image to enable or disable slow mode
-"""))
+""")
+)
 
 
 def mouse(event, x, y, flags, param):
@@ -160,7 +162,6 @@ try:
 
         # Loop though all values to calculate a percentage and add it to the overlay
         for index, value_perc in enumerate(hist_perc):
-
             # Top left point, 10px margins
             p1 = (20 + (10 * index), 10)
             # Bottom right point makes the bar 10px thick, with an height of half the percentage
