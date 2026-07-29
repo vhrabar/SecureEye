@@ -1,34 +1,35 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
+#include <unistd.h>
+
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include <unistd.h>
 
 enum class ConfirmationType : std::uint8_t { Unset, SecureEye, Pam };
 enum class Workaround : std::uint8_t { Off, Input, Native };
 
 // Exit status codes returned by the compare process
 enum CompareError : std::uint8_t {
-  NO_FACE_MODEL = 10,
-  TIMEOUT_REACHED = 11,
-  ABORT = 12,
-  TOO_DARK = 13,
-  INVALID_DEVICE = 14,
-  RUBBERSTAMP = 15
+    NO_FACE_MODEL = 10,
+    TIMEOUT_REACHED = 11,
+    ABORT = 12,
+    TOO_DARK = 13,
+    INVALID_DEVICE = 14,
+    RUBBERSTAMP = 15
 };
 
-inline auto get_workaround(const std::string &workaround) -> Workaround {
-  if (workaround == "input") {
-    return Workaround::Input;
-  }
+inline auto get_workaround(const std::string& workaround) -> Workaround {
+    if (workaround == "input") {
+        return Workaround::Input;
+    }
 
-  if (workaround == "native") {
-    return Workaround::Native;
-  }
+    if (workaround == "native") {
+        return Workaround::Native;
+    }
 
-  return Workaround::Off;
+    return Workaround::Off;
 }
 
 /**
@@ -40,20 +41,20 @@ inline auto get_workaround(const std::string &workaround) -> Workaround {
  * @note This function was created because `getenv` wasn't working properly in
  * some contexts (like sudo).
  */
-auto checkenv(const char *name) -> bool {
-  if (std::getenv(name) != nullptr) {
-    return true;
-  }
-
-  auto len = strlen(name);
-
-  for (char **env = environ; *env != nullptr; env++) {
-    if (strncmp(*env, name, len) == 0) {
-      return true;
+auto checkenv(const char* name) -> bool {
+    if (std::getenv(name) != nullptr) {
+        return true;
     }
-  }
 
-  return false;
+    auto len = strlen(name);
+
+    for (char** env = environ; *env != nullptr; env++) {
+        if (strncmp(*env, name, len) == 0) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 #endif // MAIN_H_

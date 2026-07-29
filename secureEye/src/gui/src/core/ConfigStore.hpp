@@ -3,10 +3,8 @@
 
 #include <QObject>
 
-
-class ConfigStore : QObject{
-	Q_OBJECT
+class ConfigStore : QObject {
+    Q_OBJECT
 };
 
-
-#endif //SECUREEYE_CONFIGSTORE_HPP
+#endif // SECUREEYE_CONFIGSTORE_HPP
