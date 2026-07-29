@@ -10,43 +10,41 @@ constexpr auto kMainQml = "qrc:/qml/main.qml";
 constexpr auto kAppIcon = ":/icons/logo.svg";
 } // namespace
 
-Application::Application(int &argc, char **argv) : QGuiApplication(argc, argv) {
-  setApplicationName("SecureEye Manager");
-  setOrganizationName("vhrabar");
-  setOrganizationDomain("vhrabar.github.io");
+Application::Application(int& argc, char** argv) : QGuiApplication(argc, argv) {
+    setApplicationName("SecureEye Manager");
+    setOrganizationName("vhrabar");
+    setOrganizationDomain("vhrabar.github.io");
 
-  setDesktopFileName("secureeye-gui");
-  QIcon::setFallbackThemeName("breeze");
-  setWindowIcon(
-      QIcon::fromTheme("secureeye", QIcon(QString::fromLatin1(kAppIcon))));
+    setDesktopFileName("secureeye-gui");
+    QIcon::setFallbackThemeName("breeze");
+    setWindowIcon(QIcon::fromTheme("secureeye", QIcon(QString::fromLatin1(kAppIcon))));
 
-  if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
-    QQuickStyle::setStyle("org.kde.desktop");
-  }
+    if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
+        QQuickStyle::setStyle("org.kde.desktop");
+    }
 }
 
 Application::~Application() = default;
 
 auto Application::bootstrap() -> bool {
-  createServices();
-  exposeToQml();
-  loadQml();
+    createServices();
+    exposeToQml();
+    loadQml();
 
-  return m_qmlLoaded;
+    return m_qmlLoaded;
 }
 
 void Application::createServices() {}
 
 void Application::exposeToQml() {
-  m_engine.rootContext()->setContextProperty("appVersion",
-                                             applicationVersion());
+    m_engine.rootContext()->setContextProperty("appVersion", applicationVersion());
 }
 
 void Application::loadQml() {
-  connect(
-      &m_engine, &QQmlApplicationEngine::objectCreationFailed, this,
-      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    connect(
+        &m_engine, &QQmlApplicationEngine::objectCreationFailed, this, [] { QCoreApplication::exit(1); },
+        Qt::QueuedConnection);
 
-  m_engine.load(QUrl(QString::fromLatin1(kMainQml)));
-  m_qmlLoaded = !m_engine.rootObjects().isEmpty();
+    m_engine.load(QUrl(QString::fromLatin1(kMainQml)));
+    m_qmlLoaded = !m_engine.rootObjects().isEmpty();
 }
