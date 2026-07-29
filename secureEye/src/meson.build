@@ -109,7 +109,6 @@ else
     )
 endif
 
-install_data('logo.png', install_tag: 'meta')
 autocomplete = configure_file(
     input: 'autocomplete/secureEye.in',
     output: 'autocomplete',
