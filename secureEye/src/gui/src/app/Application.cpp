@@ -1,12 +1,16 @@
 #include "Application.hpp"
 
+#include "core/ConfigStore.hpp"
+
 #include <QIcon>
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QUrl>
 
 namespace {
-constexpr auto kMainQml = "qrc:/qml/main.qml";
+
+constexpr auto kQmlImportPath = "qrc:/qt/qml";
+constexpr auto kMainQml = "qrc:/qt/qml/SecureEye/Gui/Main.qml";
 constexpr auto kAppIcon = ":/icons/logo.svg";
 } // namespace
 
@@ -34,9 +38,15 @@ auto Application::bootstrap() -> bool {
     return m_qmlLoaded;
 }
 
-void Application::createServices() {}
+void Application::createServices() {
+    // Built eagerly so that a config.ini that cannot be read reports itself
+    // before any QML binding asks for a value.
+    connect(secureEye::ConfigStore::instance(), &secureEye::ConfigStore::loadFailed, this,
+            [](const QString& error) { qWarning("Could not read the configuration: %s", qPrintable(error)); });
+}
 
 void Application::exposeToQml() {
+    m_engine.addImportPath(QString::fromLatin1(kQmlImportPath));
     m_engine.rootContext()->setContextProperty("appVersion", applicationVersion());
 }
 

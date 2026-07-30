@@ -1,13 +1,34 @@
+if not meson.version().version_compare('>=1.7')
+    error('Building the GUI needs meson >= 1.7 for qt.qml_module(), got ' + meson.version() + '. Configure with -Dinstall_gui=false to skip it.')
+endif
+
 qt6 = import('qt6')
 qt6_dep = dependency('qt6', modules : ['Core', 'Gui', 'Qml', 'Quick', 'QuickControls2', 'Network'])
+gui_inc = include_directories('src', 'src/core')
 moc_files = qt6.preprocess(
     moc_headers : [
         'src/app/Application.hpp',
-        'src/core/ConfigStore.hpp',
-        'src/core/ConfigSchema.hpp'
     ],
     qresources : ['secureeye-gui.qrc'],
     dependencies : qt6_dep,
+)
+
+# The QML files and the C++ types they use form one QML module. qmltyperegistrar
+qml_module = qt6.qml_module(
+    'SecureEye.Gui',
+    version : '1.0',
+    qml_sources : [
+        'qml/Main.qml',
+        'qml/pages/Dashboard.qml',
+        'qml/pages/Configuration.qml',
+    ],
+    moc_headers : [
+        'src/core/ConfigSchema.hpp',
+        'src/core/ConfigStore.hpp',
+    ],
+    include_directories : gui_inc,
+    dependencies : qt6_dep,
+    install : false,
 )
 
 gui_conf_data = configuration_data(paths_dict)
@@ -31,9 +52,12 @@ executable(
     'secureeye-gui',
     gui_sources,
     moc_files,
+    qml_module,
+    include_directories : gui_inc,
     dependencies : [qt6_dep],
     cpp_args : [
         '-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"',
+        '-DSECUREEYE_CONFIG_PATH="' + config_path + '"',
     ],
     install : true,
     install_dir : get_option('bindir'),
