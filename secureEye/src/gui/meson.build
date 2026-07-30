@@ -26,6 +26,7 @@ qml_module = qt6.qml_module(
         'src/core/ConfigSchema.hpp',
         'src/core/ConfigStore.hpp',
         'src/core/ConfigModel.hpp',
+        'src/core/ConfigSectionFilter.hpp',
     ],
     include_directories : gui_inc,
     dependencies : qt6_dep,
@@ -47,6 +48,8 @@ gui_sources = [
     'src/app/Application.cpp',
     'src/core/ConfigStore.cpp',
     'src/core/ConfigModel.cpp',
+    'src/core/ConfigSectionFilter.cpp',
+    'src/core/IniDocument.cpp',
     gui_paths_h,
 ]
 
