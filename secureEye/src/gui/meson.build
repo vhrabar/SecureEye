@@ -25,6 +25,7 @@ qml_module = qt6.qml_module(
     moc_headers : [
         'src/core/ConfigSchema.hpp',
         'src/core/ConfigStore.hpp',
+        'src/core/ConfigModel.hpp',
     ],
     include_directories : gui_inc,
     dependencies : qt6_dep,
@@ -45,6 +46,7 @@ gui_sources = [
     'src/main.cpp',
     'src/app/Application.cpp',
     'src/core/ConfigStore.cpp',
+    'src/core/ConfigModel.cpp',
     gui_paths_h,
 ]
 
