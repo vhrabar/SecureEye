@@ -43,6 +43,9 @@ struct ConfigOption {
 
     // Recorder the option is limited to, when it is not universal.
     std::string_view note;
+
+    std::string_view requiresKey;
+    std::string_view requiresValue;
 };
 
 struct ConfigSectionInfo {
@@ -272,6 +275,8 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
         .help = "Video format used to open the capture device.",
         .enumValues = kDeviceFormats,
         .note = "ffmpeg only",
+        .requiresKey = "recording_plugin",
+        .requiresValue = "ffmpeg",
     },
     {
         .section = "video",
@@ -283,6 +288,8 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
                 "fixes issues "
                 "with YUYV raw frame decoding.",
         .note = "opencv only",
+        .requiresKey = "recording_plugin",
+        .requiresValue = "opencv",
     },
     {
         .section = "video",
@@ -297,6 +304,8 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
         .min = -1.0,
         .max = 10000.0,
         .note = "opencv only",
+        .requiresKey = "recording_plugin",
+        .requiresValue = "opencv",
     },
     {
         .section = "video",
@@ -311,6 +320,8 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
         .min = -1.0,
         .max = 1000.0,
         .note = "opencv only",
+        .requiresKey = "recording_plugin",
+        .requiresValue = "opencv",
     },
     {.section = "video",
      .key = "rotate",
