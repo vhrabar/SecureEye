@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import org.kde.kirigami as Kirigami
-import "pages"
 
 Kirigami.ApplicationWindow {
     id: root
@@ -13,7 +12,7 @@ Kirigami.ApplicationWindow {
     height: 900
     width: 1440
 
-    pageStack.initialPage: dashboardComponent
+    pageStack.initialPage: configComponent
 
     globalDrawer: Kirigami.GlobalDrawer {
         collapsible: true
