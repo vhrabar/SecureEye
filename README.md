@@ -49,7 +49,7 @@ Early development. Core architecture and modules are being actively built.
 
 These mirror the package `Build-Depends` in `secureEye/debian/control`:
 
-- Meson 0.64 or higher, Ninja, pkg-config, a C++ compiler (`build-essential`)
+- Meson 0.64 or higher for headless (1.7 or higher for GUI), Ninja, pkg-config, a C++ compiler (`build-essential`)
 - Python 3 with pip (`python3`, `python3-pip`)
 - `libpam0g-dev`, `libevdev-dev`, `libinih-dev` (INIReader is provided by
   `libinih-dev`; it is **not** downloaded, the build runs with
