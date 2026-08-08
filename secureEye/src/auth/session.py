@@ -16,11 +16,12 @@ import paths_factory
 import snapshot
 from i18n import _
 from recorders.video_capture import VideoCapture
+from . import template_store
 from .detector_factory import create_detector, DetectorFactoryError
 from .errors import ExitCode
 from .frame_ops import apply_rotation_mode, darkness_percent, maybe_scale
 from .matching import best_match, is_match
-from .model_store import EmptyModelStore, ModelFileNotFound, ModelSchemaError, load_user_models
+from .template_store import TemplateSet, TemplateStoreError
 from .types import RuntimeStats
 from .ui_bridge import AuthUiBridge
 
@@ -50,24 +51,26 @@ class AuthSession:
         if not user:
             return int(ExitCode.ABORT)
 
-        try:
-            models, encodings = load_user_models(user)
-        except (ModelFileNotFound, EmptyModelStore, ModelSchemaError):
-            return int(ExitCode.NO_FACE_MODEL)
-
         config = configparser.ConfigParser()
         config.read(self.config_path)
+
+        # The templates have to match the embedding space of the active
+        # pipeline, so the config decides which ones we can even load.
+        try:
+            templates = template_store.load(user, model_id=template_store.active_model_id(config))
+        except TemplateStoreError:
+            return int(ExitCode.NO_FACE_MODEL)
 
         gtk_stdout = config.getboolean("debug", "gtk_stdout", fallback=False)
         self.ui = self.ui or AuthUiBridge(enabled_stdout=gtk_stdout)
         self.ui.start()
 
         try:
-            return self._run_loop(config, models, encodings)
+            return self._run_loop(config, templates)
         finally:
             self.ui.close()
 
-    def _run_loop(self, config, models, encodings) -> int:  # noqa: C901
+    def _run_loop(self, config, templates: TemplateSet) -> int:  # noqa: C901
         save_failed = config.getboolean("snapshots", "save_failed", fallback=False)
         save_successful = config.getboolean("snapshots", "save_successful", fallback=False)
         end_report = config.getboolean("debug", "end_report", fallback=False)
@@ -154,7 +157,7 @@ class AuthSession:
                         detector_bundle.detector.encode(frame, face_location),
                         dtype=np.float32,
                     )
-                    match_index, match = best_match(encodings, face_encoding)
+                    match_index, match = best_match(templates.matrix, face_encoding)
                     stats.lowest_certainty = min(stats.lowest_certainty, match)
 
                     if not is_match(match, video_certainty):
@@ -165,7 +168,7 @@ class AuthSession:
 
                     if end_report:
                         self._print_end_report(
-                            models, match_index, match, stats, video_capture, frame, height
+                            templates, match_index, match, stats, video_capture, frame, height
                         )
 
                     if save_successful:
@@ -288,7 +291,9 @@ class AuthSession:
         if self.ui is not None:
             self.ui.send(kind, message)
 
-    def _print_end_report(self, models, match_index, match, stats, video_capture, frame, height):
+    def _print_end_report(
+        self, templates: TemplateSet, match_index, match, stats, video_capture, frame, height
+    ):
         def print_timing(label, key):
             print("  %s: %dms" % (label, round(self.timings[key] * 1000)))
 
@@ -321,9 +326,9 @@ class AuthSession:
         print(_("Dark frames ignored: %d ") % (stats.dark_tries,))
         print(_("Certainty of winning frame: %.3f") % (match * 10,))
 
-        if 0 <= match_index < len(models):
-            print(
-                _('Winning model: %d ("%s")') % (match_index, models[match_index].get("label", "?"))
-            )
+        # match_index addresses a row of the stacked matrix, not a template.
+        owner = templates.owner_of(match_index)
+        if owner is not None:
+            print(_('Winning model: %d ("%s")') % (owner.id, owner.label or "?"))
         else:
             print(_("Winning model index: %d") % match_index)

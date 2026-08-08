@@ -2,7 +2,6 @@
 
 import builtins
 import configparser
-import json
 import os
 import sys
 
@@ -12,6 +11,7 @@ import time
 import numpy as np
 
 import paths_factory
+from auth import template_store
 from i18n import _
 from recorders.video_capture import VideoCapture
 
@@ -49,24 +49,27 @@ except FileNotFoundError:
 import cv2  # noqa: E402
 
 user = builtins.secureEye_user
-# The permanent file to store the encoded model in
-enc_file = paths_factory.user_model_path(user)
-# Known encodings
-encodings = []
+# The embedding space the new model will be tagged with
+model_id = template_store.active_model_id(config)
+# Known templates
+templates = []
 
 # Make the ./models folder if it doesn't already exist
 if not os.path.exists(paths_factory.user_models_dir_path()):
     print(_("No face model folder found, creating one"))
     os.makedirs(paths_factory.user_models_dir_path())
 
-# To try read a premade encodings file if it exists
+# To try read premade templates if they exist
 try:
-    encodings = json.load(open(enc_file))
-except FileNotFoundError:
-    encodings = []
+    templates = template_store.load_all(user)
+except (template_store.TemplateFileNotFound, template_store.EmptyTemplateStore):
+    templates = []
+except template_store.TemplateSchemaError as exc:
+    print(_("Existing face models are unreadable, refusing to overwrite them: ") + str(exc))
+    sys.exit(1)
 
 # Print a warning if too many encodings are being added
-if len(encodings) > 3:
+if len(templates) > 3:
     print(_("NOTICE: Each additional model slows down the face recognition engine slightly"))
     print(_("Press Ctrl+C to cancel\n"))
 
@@ -78,7 +81,7 @@ if not builtins.secureEye_args.plain:
 label = "Initial model"
 
 # some id's can be skipped, but the last id is always the maximum
-next_id = encodings[-1]["id"] + 1 if encodings else 0
+next_id = template_store.next_id(templates)
 
 # Get the label from the cli arguments if provided
 if builtins.secureEye_args.arguments:
@@ -103,9 +106,6 @@ else:
 if "," in label:
     print(_('NOTICE: Removing illegal character "," from model name'))
     label = label.replace(",", "")
-
-# Prepare the metadata for insertion
-insert_model = {"time": int(time.time()), "label": label, "id": next_id, "data": []}
 
 # Set up video_capture
 video_capture = VideoCapture(config)
@@ -197,14 +197,13 @@ face_location = face_locations[0]
 # Get the encodings in the frame
 face_encoding = np.array(detector.encode(frame, face_location))
 
-insert_model["data"].append(face_encoding.tolist())
-
-# Insert full object into the list
-encodings.append(insert_model)
-
-# Save the new encodings to disk
-with open(enc_file, "w") as datafile:
-    json.dump(encodings, datafile)
+# Save the new template to disk, tagged with the space that produced it
+template_store.append(
+    user,
+    model_id=model_id,
+    label=label,
+    embeddings=face_encoding,
+)
 
 # Give let the user know how it went
 print(
