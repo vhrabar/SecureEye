@@ -47,6 +47,8 @@ ignore_missing_imports = true
 exclude = '(^|/)(build|buildDir|build-ppa|obj-x86_64-linux-gnu|\.venv)/'
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["build", "buildDir", "build-ppa", "obj-x86_64-linux-gnu", ".venv", ".git"]
 markers = [
 	"mediapipe_integration: tests that require the real mediapipe package",
 ]
