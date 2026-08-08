@@ -113,9 +113,11 @@ def test_remove_keeps_other_models(cli_env, capsys):
 
     _run_cli_module("cli.remove")
 
+    # Removal rewrites the file in the versioned envelope
     saved = json.loads(cli_env.model_path.read_text(encoding="utf-8"))
-    assert len(saved) == 1
-    assert saved[0]["id"] == 1
+    assert saved["version"] == 2
+    assert len(saved["templates"]) == 1
+    assert saved["templates"][0]["id"] == 1
     assert "removed model 0" in capsys.readouterr().out.lower()
 
 

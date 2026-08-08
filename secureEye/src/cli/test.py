@@ -11,8 +11,9 @@ import cv2
 import numpy as np
 
 import paths_factory
+from auth import template_store
 from auth.detector_factory import create_detector, DetectorFactoryError
-from auth.model_store import load_user_models, ModelFileNotFound, EmptyModelStore, ModelSchemaError
+from auth.matching import best_match
 from i18n import _
 from recorders.video_capture import VideoCapture
 
@@ -80,16 +81,17 @@ except DetectorFactoryError as exc:
     print(exc)
     sys.exit(1)
 
-encodings = None
-models = None
+templates = None
 
 try:
     user = builtins.secureEye_user
-    models, encodings = load_user_models(user)
-except (ModelFileNotFound, EmptyModelStore):
+    templates = template_store.load(user, model_id=template_store.active_model_id(config))
+except (template_store.TemplateFileNotFound, template_store.EmptyTemplateStore):
     pass
-except ModelSchemaError as exc:
+except template_store.TemplateSchemaError as exc:
     print(_("Model file has invalid encoding dimensions, skipping recognition: ") + str(exc))
+except template_store.TemplateSpaceMismatch as exc:
+    print(str(exc))
 
 
 def face_bounds(loc):
@@ -237,28 +239,23 @@ try:
                 r = int(r + (r * 0.2))
 
                 # If we have models defined for the current user
-                if models:
+                if templates:
                     # Get the encoding of the face in the frame
                     face_encoding = np.asarray(
                         detector_bundle.detector.encode(orig_frame, loc), dtype=np.float32
                     )
 
                     # Match this found face against a known face
-                    matches = np.linalg.norm(encodings - face_encoding, axis=1)
-
-                    # Get best match
-                    match_index = np.argmin(matches)
-                    match = matches[match_index]
+                    match_index, match = best_match(templates.matrix, face_encoding)
+                    owner = templates.owner_of(match_index)
 
                     # If a model matches
-                    if 0 < match < video_certainty:
+                    if 0 < match < video_certainty and owner is not None:
                         # Turn the circle green
                         color = (0, 230, 0)
 
                         # Print the name of the model next to the circle
-                        circle_text = "{} (certainty: {})".format(
-                            models[match_index]["label"], round(match * 10, 3)
-                        )
+                        circle_text = "{} (certainty: {})".format(owner.label, round(match * 10, 3))
                         cv2.putText(
                             overlay,
                             circle_text,
