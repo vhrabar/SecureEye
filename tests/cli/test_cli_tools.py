@@ -131,6 +131,90 @@ def test_clear_deletes_model_file(cli_env, capsys):
     assert "models cleared" in capsys.readouterr().out.lower()
 
 
+@pytest.fixture
+def fake_camera(monkeypatch):
+    """Stand in for the detector and the capture loop of a re-enroll run."""
+    import cli.enrollment
+
+    captured = np.full(128, 0.7, dtype=np.float32)
+    monkeypatch.setattr(cli.enrollment, "load_detector", lambda _config: object())
+    monkeypatch.setattr(cli.enrollment, "ensure_models_dir", lambda: None)
+    monkeypatch.setattr(cli.enrollment, "ask_label", lambda default: default)
+    monkeypatch.setattr(cli.enrollment, "capture_encoding", lambda _config, _detector: captured)
+    return captured
+
+
+def _templates(*entries):
+    return {
+        "version": 2,
+        "templates": [
+            {
+                "id": index,
+                "label": label,
+                "created": 1700000000 + index,
+                "model_id": model_id,
+                "dim": 2,
+                "data": [[0.1, 0.2]],
+            }
+            for index, (label, model_id) in enumerate(entries)
+        ],
+    }
+
+
+def test_re_enroll_replaces_models_of_the_active_space(cli_env, fake_camera, capsys):
+    cli_env.model_path.write_text(
+        json.dumps(_templates(("old", "dlib-resnet-v1"), ("older", "dlib-resnet-v1"))),
+        encoding="utf-8",
+    )
+
+    _run_cli_module("cli.re_enroll")
+
+    saved = json.loads(cli_env.model_path.read_text(encoding="utf-8"))
+    assert [t["label"] for t in saved["templates"]] == ["Model #2"]
+    assert saved["templates"][0]["model_id"] == "dlib-resnet-v1"
+    assert "re-enrolled" in capsys.readouterr().out.lower()
+
+
+def test_re_enroll_keeps_models_of_other_spaces(cli_env, fake_camera, monkeypatch):
+    """The old space stays put; it is the rollback path."""
+    cli_env.config_path.write_text(
+        "[core]\npipeline = onnx\n\n[recognition]\nmodel_id = sface-2021dec\n", encoding="utf-8"
+    )
+    cli_env.model_path.write_text(
+        json.dumps(_templates(("legacy", "dlib-resnet-v1"), ("stale", "sface-2021dec"))),
+        encoding="utf-8",
+    )
+
+    _run_cli_module("cli.re_enroll")
+
+    saved = json.loads(cli_env.model_path.read_text(encoding="utf-8"))
+    by_space = {t["model_id"]: t["label"] for t in saved["templates"]}
+    assert by_space["dlib-resnet-v1"] == "legacy"
+    assert by_space["sface-2021dec"] == "Model #2"
+
+
+def test_re_enroll_without_models_points_at_add(cli_env, fake_camera, capsys):
+    with pytest.raises(SystemExit) as excinfo:
+        _run_cli_module("cli.re_enroll")
+
+    assert excinfo.value.code == 1
+    assert "no face model known" in capsys.readouterr().out.lower()
+
+
+def test_re_enroll_aborts_when_declined(cli_env, fake_camera, monkeypatch, capsys):
+    payload = _templates(("old", "dlib-resnet-v1"))
+    cli_env.model_path.write_text(json.dumps(payload), encoding="utf-8")
+    cli_env.args.y = False
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_cli_module("cli.re_enroll")
+
+    assert excinfo.value.code == 1
+    # Declining must not have cost the user their existing models
+    assert json.loads(cli_env.model_path.read_text(encoding="utf-8")) == payload
+
+
 def test_config_prints_error_when_no_editor(cli_env, monkeypatch, capsys):
     monkeypatch.delenv("EDITOR", raising=False)
     monkeypatch.setattr("shutil.which", lambda _name: None)

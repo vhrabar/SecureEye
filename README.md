@@ -301,6 +301,7 @@ secureEye [-U user] [-y] command [argument]
 | `config`   | Open the config file in your default editor |
 | `disable`  | Disable or enable SecureEye                 |
 | `list`     | List all saved face models for a user       |
+| `re-enroll`| Recapture a user's face models under the currently configured recognizer |
 | `remove`   | Remove a specific model for a user          |
 | `snapshot` | Take a snapshot of your camera input        |
 | `test`     | Test the camera and recognition methods     |

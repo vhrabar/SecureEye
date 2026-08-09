@@ -16,7 +16,8 @@ enum CompareError : std::uint8_t {
   ABORT = 12,
   TOO_DARK = 13,
   INVALID_DEVICE = 14,
-  RUBBERSTAMP = 15
+  RUBBERSTAMP = 15,
+  TEMPLATE_MODEL_MISMATCH = 16
 };
 
 inline auto get_workaround(const std::string &workaround) -> Workaround {

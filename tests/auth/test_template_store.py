@@ -373,6 +373,61 @@ class TestWriting:
             template_store.delete("ada")
 
 
+class TestReplaceSpace:
+    """re-enroll: regenerate one space, leave the rest alone."""
+
+    def test_replaces_only_the_named_space(self, store):
+        _legacy_file(store)
+        template_store.append("ada", model_id=SFACE, label="stale", embeddings=np.zeros(128) + 0.2)
+
+        template_store.replace_space(
+            "ada", model_id=SFACE, label="fresh", embeddings=np.zeros(128) + 0.3
+        )
+
+        assert [t.label for t in template_store.load("ada", model_id=SFACE).templates] == ["fresh"]
+        assert len(template_store.load("ada", model_id=LEGACY_MODEL_ID)) == 1
+
+    def test_collapses_several_stale_templates_into_one(self, store):
+        for label in ("a", "b", "c"):
+            template_store.append(
+                "ada", model_id=SFACE, label=label, embeddings=np.zeros(128) + 0.1
+            )
+
+        template_store.replace_space(
+            "ada", model_id=SFACE, label="fresh", embeddings=np.zeros(128) + 0.2
+        )
+
+        assert [t.label for t in template_store.load_all("ada")] == ["fresh"]
+
+    def test_ids_do_not_collide_with_kept_templates(self, store):
+        _legacy_file(store)  # id 0, legacy space
+
+        new = template_store.replace_space(
+            "ada", model_id=SFACE, label="fresh", embeddings=np.zeros(128) + 0.2
+        )
+
+        assert new.id == 1
+        assert sorted(t.id for t in template_store.load_all("ada")) == [0, 1]
+
+    def test_works_with_no_existing_file(self, store):
+        template_store.replace_space(
+            "ada", model_id=SFACE, label="fresh", embeddings=np.zeros(128) + 0.2
+        )
+
+        assert len(template_store.load("ada", model_id=SFACE)) == 1
+
+    def test_rejects_bad_encodings_before_touching_the_file(self, store):
+        _legacy_file(store)
+        original = (store / "ada.dat").read_bytes()
+
+        with pytest.raises(TemplateSchemaError):
+            template_store.replace_space(
+                "ada", model_id=LEGACY_MODEL_ID, label="fresh", embeddings=np.full(128, np.nan)
+            )
+
+        assert (store / "ada.dat").read_bytes() == original
+
+
 class TestHelpers:
     def test_next_id_and_find(self, store):
         _legacy_file(store)

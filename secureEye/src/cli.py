@@ -43,7 +43,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "command",
     help=_(
-        "The command option to execute, can be one of the following: add, clear, config, disable, list, remove, snapshot, set, test or version."
+        "The command option to execute, can be one of the following: add, clear, config, disable, list, re-enroll, remove, snapshot, set, test or version."
     ),
     metavar="command",
     choices=[
@@ -52,6 +52,7 @@ parser.add_argument(
         "config",
         "disable",
         "list",
+        "re-enroll",
         "remove",
         "set",
         "snapshot",
@@ -117,6 +118,7 @@ command_modules = {
     "config": "cli.config",
     "disable": "cli.disable",
     "list": "cli.list",
+    "re-enroll": "cli.re_enroll",
     "remove": "cli.remove",
     "set": "cli.set",
     "snapshot": "cli.snap",
