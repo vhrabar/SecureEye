@@ -1,5 +1,3 @@
-"""Authentication session extracted from legacy compare flow."""
-
 from __future__ import annotations
 
 import _thread as thread
@@ -21,7 +19,7 @@ from .detector_factory import create_detector, DetectorFactoryError
 from .errors import ExitCode
 from .frame_ops import apply_rotation_mode, darkness_percent, maybe_scale
 from .matching import best_match, is_match
-from .template_store import TemplateSet, TemplateStoreError
+from .template_store import TemplateSet, TemplateSpaceMismatch, TemplateStoreError
 from .types import RuntimeStats
 from .ui_bridge import AuthUiBridge
 
@@ -58,6 +56,11 @@ class AuthSession:
         # pipeline, so the config decides which ones we can even load.
         try:
             templates = template_store.load(user, model_id=template_store.active_model_id(config))
+        except TemplateSpaceMismatch as exc:
+            # Distinct from "no models": the user has models, they are just
+            # unusable here, and only re-enrolling fixes that.
+            print(str(exc))
+            return int(ExitCode.TEMPLATE_MODEL_MISMATCH)
         except TemplateStoreError:
             return int(ExitCode.NO_FACE_MODEL)
 

@@ -178,26 +178,73 @@ def append(
     :param created: the time the template was created, or ``None`` for now
     :return: the new template
     """
+    existing = _load_or_empty(user)
+    template = _build(
+        existing, model_id=model_id, label=label, embeddings=embeddings, created=created
+    )
+    save(user, [*existing, template])
+    return template
+
+
+def replace_space(
+    user: str,
+    *,
+    model_id: str,
+    label: str,
+    embeddings: Any,
+    created: int | None = None,
+) -> Template:
+    """
+    Replace every template of ``user`` in ``model_id``'s space with a fresh one.
+
+    This is what re-enrollment does. Templates from other spaces are kept, so
+    switching the recognizer back keeps working without enrolling again. The
+    whole set is written in one go, so an interrupted re-enroll cannot leave the
+    user with no models at all.
+    :param user: the user to re-enroll
+    :param model_id: the embedding space being regenerated
+    :param label: the label of the new template
+    :param embeddings: the encodings of the new template
+    :param created: the time the template was created, or ``None`` for now
+    :return: the new template
+    """
+    existing = _load_or_empty(user)
+    template = _build(
+        existing, model_id=model_id, label=label, embeddings=embeddings, created=created
+    )
+    kept = [other for other in existing if other.model_id != model_id]
+    save(user, [*kept, template])
+    return template
+
+
+def _load_or_empty(user: str) -> list[Template]:
+    try:
+        return load_all(user)
+    except (TemplateFileNotFound, EmptyTemplateStore):
+        return []
+
+
+def _build(
+    existing: Sequence[Template],
+    *,
+    model_id: str,
+    label: str,
+    embeddings: Any,
+    created: int | None,
+) -> Template:
     vectors = np.atleast_2d(np.asarray(embeddings, dtype=np.float32))
     if vectors.ndim != 2 or vectors.shape[0] == 0 or vectors.shape[1] == 0:
         raise TemplateSchemaError(f"Expected a non-empty (n, dim) array, got {vectors.shape}")
     if not np.all(np.isfinite(vectors)):
         raise TemplateSchemaError("Encoding contains non-finite values")
 
-    try:
-        existing = load_all(user)
-    except (TemplateFileNotFound, EmptyTemplateStore):
-        existing = []
-
-    template = Template(
+    return Template(
         id=next_id(existing),
         label=label,
         created=int(time.time()) if created is None else created,
         model_id=model_id,
         embeddings=vectors,
     )
-    save(user, [*existing, template])
-    return template
 
 
 def next_id(templates: Sequence[Template]) -> int:
