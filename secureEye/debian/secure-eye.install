@@ -1,10 +1,9 @@
 usr/bin/secureEye
+usr/lib/*/security/pam_secureEye.so
 usr/lib/*/secureEye
-usr/lib/secureeye-authd/wheels
-usr/lib/secureeye-authd/requirements.txt
 usr/lib/systemd/system/secureeye-authd.service
 usr/share/bash-completion/completions/secureEye
+usr/share/man/man1/SecureEye.1
 usr/share/secureEye/logo.png
 etc/secureEye/config.ini
-debian/secureeye-authd.sysusers usr/lib/sysusers.d/secureeye-authd.conf
-
+debian/secureEye.pam-config usr/share/pam-configs/

@@ -193,28 +193,6 @@ if [[ -n $debian_dir ]]; then
 fi
 
 
-echo "::group::Vendoring Python wheels..."
-requirements_file="${REQUIREMENTS:-requirements-vendor.txt}"
-if [[ "$requirements_file" != /* ]]; then
-    requirements_file="$workspace/$requirements_file"
-fi
-if [[ ! -f "$requirements_file" ]]; then
-    echo "requirements file not found: $requirements_file" >&2
-    exit 1
-fi
-wheels_cache=/tmp/workspace/wheels
-rm -rf "$wheels_cache" && mkdir -p "$wheels_cache"
-
-python3 -m pip download \
-    --only-binary=:all: --no-cache-dir --no-deps \
-    --platform manylinux_2_28_x86_64 \
-    --platform manylinux_2_17_x86_64 \
-    --platform manylinux2014_x86_64 \
-    --dest "$wheels_cache" \
-    -r "$requirements_file"
-ls -la "$wheels_cache"
-echo "::endgroup::"
-
 series_index=0
 for s in $SERIES; do
     series_index=$((series_index + 1))
@@ -244,10 +222,6 @@ for s in $SERIES; do
             cp -r /tmp/$s/debian/* debian/
         fi
     fi
-
-    # Ship the vendored wheels inside the source package (offline build input).
-    mkdir -p debian/wheels
-    cp "$wheels_cache"/*.whl debian/wheels/
 
     # Extract the package name from the debian changelog
     package=$(dpkg-parsechangelog --show-field Source)

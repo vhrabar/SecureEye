@@ -45,7 +45,7 @@ Early development. Core architecture and modules are being actively built.
 These mirror the package `Build-Depends` in `secureEye/debian/control`:
 
 - Meson 0.64 or higher, Ninja, pkg-config, a C++ compiler (`build-essential`)
-- Python 3 with pip (`python3`, `python3-pip`)
+- Python 3 (`python3`)
 - `libpam0g-dev`, `libevdev-dev`, `libinih-dev` (INIReader is provided by
   `libinih-dev`; it is **not** downloaded, the build runs with
   `--wrap-mode=nodownload`)
@@ -57,7 +57,7 @@ On **Debian / Ubuntu**:
 ```bash
 sudo apt-get update && sudo apt-get install -y \
     meson ninja-build pkg-config build-essential \
-    python3 python3-pip python3-venv \
+    python3 \
     libpam0g-dev libinih-dev libevdev-dev
 ```
 
@@ -80,35 +80,34 @@ meson compile -C build
 > builds (`.deb`, `.rpm` or the AUR package). Meson's default prefix is
 > `/usr/local`, and `/usr/local/lib/...` shadows the packaged `/usr/lib/...`
 > systemd unit (and `/usr/local/bin` shadows `/usr/bin`), which breaks the
-> daemon and CLI. On Debian and Fedora a bare `meson install` also does **not**
-> create the recognition virtualenv, that is built by the `secureeye-authd`
-> package at install time, so the daemon will not start. For a working system
-> install, build and install your distribution's packages below.
+> daemon and CLI. A bare `meson install` also does **not** pull in the
+> recognition backends (`python3-mediapipe` / `python3-dlib`) that the packages
+> depend on, so the daemon will not start. For a working system install, build
+> and install your distribution's packages below.
 
 ### Debian / Ubuntu & derivatives
 
-SecureEye ships as three packages:
+SecureEye ships as a single `secure-eye` package containing the C/C++ PAM
+module, the `secureeye-authd` daemon, the Python recognition runtime and the
+`secureEye` CLI. It replaces the older `libpam-secureeye` / `secureeye-authd`
+split, so `apt` swaps those out on upgrade.
 
-- `libpam-secureeye` — the C/C++ PAM module (no Python)
-- `secureeye-authd` — the authentication daemon and Python recognition runtime
-- `secure-eye` — a transitional metapackage that depends on both
-
-Download the latest `.deb` files from the
-[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and
-install all of them together so dependencies (including `python3-venv`) resolve:
-
-```bash
-sudo apt install ./libpam-secureeye_*.deb ./secureeye-authd_*.deb ./secure-eye_*.deb
-```
-
-On install, `secureeye-authd` builds its recognition virtualenv from the bundled
-wheels (this takes a short while) and enables the `secureeye-authd.service`.
-
-### PPA
+The recognition backends are ordinary packages rather than a bundled
+virtualenv, and they live in `ppa:vhrabar/tools`, so add that repository first
+either way:
 
 ```bash
 sudo add-apt-repository ppa:vhrabar/tools
-sudo apt update && sudo apt install secure-eye
+sudo apt update
+```
+
+- `python3-mediapipe` — the default backend, **amd64 only**
+- `python3-dlib` — the alternative backend, available on every architecture
+
+#### PPA
+
+```bash
+sudo apt install secure-eye
 ```
 
 ### Fedora, RHEL & RPM-based systems
@@ -132,9 +131,9 @@ sudo dnf copr enable vhrabar/SecureEye
 sudo dnf install secure-eye
 ```
 
-This installs the same three packages as on Debian (`libpam-secureeye`,
-`secureeye-authd`, `secure-eye`). On install, `secureeye-authd` builds its
-recognition virtualenv from the bundled wheels and enables the
+The RPM packaging is still split into `libpam-secureeye`, `secureeye-authd` and
+the `secure-eye` metapackage that depends on both. On install, `secureeye-authd`
+builds its recognition virtualenv from the bundled wheels and enables the
 `secureeye-authd.service`.
 
 Alternatively, download the `.rpm` files from the
@@ -179,9 +178,10 @@ cd secureEye/archlinux/secureEye
 makepkg -si
 ```
 
-Unlike the `.deb`/`.rpm` packages, the Arch build does **not** bundle a recognition virtualenv: every dependency is a
-real package and the daemon runs on the system interpreter, so there is nothing to rebuild after a Python upgrade. On
-`aarch64` there is no MediaPipe, so the package depends on
+Like the `.deb` packages (and unlike the `.rpm` ones), the Arch build does
+**not** bundle a recognition virtualenv: every dependency is a real package and
+the daemon runs on the system interpreter, so there is nothing to rebuild after
+a Python upgrade. On `aarch64` there is no MediaPipe, so the package depends on
 `python-dlib` and ships `detector_backend = dlib` in the default config.
 
 Following Arch policy, the service is **not** started for you:
