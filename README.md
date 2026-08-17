@@ -163,23 +163,23 @@ sudo dnf install ./secure-eye-*.rpm
 
 ### Arch Linux & derivatives
 
-SecureEye is packaged for the AUR as `secureeye`, which builds two packages:
+SecureEye is packaged for the AUR as a single `secure-eye` package containing
+the C/C++ PAM module, the `secureeye-authd` daemon, the Python recognition
+runtime and the `secureEye` CLI. It replaces the older `libpam-secureeye` /
+`secureeye-authd` split, so pacman swaps those out on upgrade.
 
-- `libpam-secureeye`: the C/C++ PAM module (no Python)
-- `secureeye-authd`: the authentication daemon and Python recognition runtime
-
-There is no transitional metapackage; install both. With an AUR helper:
+With an AUR helper:
 
 ```bash
-paru -S libpam-secureeye secureeye-authd   # or: yay -S ...
+paru -S secure-eye   # or: yay -S ...
 ```
 
-Or manually with `makepkg` (the recognition dependencies `python-mediapipe`
-and `python-sounddevice` also come from the AUR and must be built first):
+Or manually with `makepkg` (the recognition backends `python-dlib` and
+`python-mediapipe` also come from the AUR and are built first):
 
 ```bash
-git clone https://aur.archlinux.org/secureeye.git
-cd secureeye
+git clone https://aur.archlinux.org/secure-eye.git
+cd secure-eye
 makepkg -si
 ```
 
@@ -193,8 +193,9 @@ makepkg -si
 As with the `.deb` and `.rpm` packages, the Arch build does **not** bundle a
 recognition virtualenv: every dependency is a real package and the daemon runs
 on the system interpreter, so there is nothing to rebuild after a Python
-upgrade. On `aarch64` there is no MediaPipe, so the package depends on
-`python-dlib` and ships `detector_backend = dlib` in the default config.
+upgrade. `python-mediapipe` is the default backend and is x86_64 only;
+`python-dlib` is the alternative. On other architectures set
+`detector_backend = dlib` in `/etc/secureEye/config.ini` before first use.
 
 Following Arch policy, the service is **not** started for you:
 
