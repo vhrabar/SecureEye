@@ -25,14 +25,6 @@ sha256sums=('c848207d44068849a13150a8b47a3d45806a9a43b9c868d1f5915ed8c2cf2d18'
 
 _srcname="SecureEye-$pkgver"
 
-prepare() {
-	cd "$_srcname"
-
-	# The deb/rpm packages run the daemon from a wheel venv built at install
-	sed -i 's|/usr/lib/secureeye-authd/venv/bin/python3|/usr/bin/python3|' \
-		secureEye/src/systemd/secureeye-authd.service.in
-}
-
 build() {
 	meson setup "$_srcname" build \
 		--wrap-mode=nodownload \
@@ -42,6 +34,7 @@ build() {
 		--sysconfdir=/etc \
 		--localstatedir=/var \
 		-Dinstall_pam_config=false \
+		-Dpython_path=/usr/bin/python3 \
 		-Dconfig_dir=/etc/secureEye \
 		-Duser_models_dir=/etc/secureEye/models
 	meson compile -C build
@@ -97,7 +90,7 @@ package_secureeye-authd() {
 
 	# The systemd unit runs as the "secureeye" user; systemd's pacman hook
 	# creates it from this fragment.
-	install -Dm644 "$_srcname/secureEye/rpm/secureeye-authd.sysusers" \
+	install -Dm644 "$_srcname/secureEye/rpm/secure-eye.sysusers" \
 		"$pkgdir/usr/lib/sysusers.d/secureeye-authd.conf"
 
 	if [[ $CARCH != x86_64 ]]; then

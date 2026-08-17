@@ -112,13 +112,25 @@ sudo apt install secure-eye
 
 ### Fedora, RHEL & RPM-based systems
 
-The easiest way is the
-[COPR repository](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/).
+SecureEye ships as a single `secure-eye` package containing the C/C++ PAM
+module, the `secureeye-authd` daemon, the Python recognition runtime and the
+`secureEye` CLI. It obsoletes the older `libpam-secureeye` / `secureeye-authd`
+split, so `dnf` swaps those out on upgrade.
+
+The recognition backends are ordinary packages rather than a bundled
+virtualenv, and they live in the
+[`vhrabar/python-extras`](https://copr.fedorainfracloud.org/coprs/vhrabar/python-extras/)
+COPR, so enable it alongside the
+[SecureEye COPR](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/):
+
+- `python3-mediapipe` — the default backend, **x86_64 only**
+- `python3-dlib` — the alternative backend, available on every architecture
 
 On **Fedora**:
 
 ```bash
 sudo dnf copr enable vhrabar/SecureEye
+sudo dnf copr enable vhrabar/python-extras
 sudo dnf install secure-eye
 ```
 
@@ -128,20 +140,20 @@ plugin and dependencies):
 ```bash
 sudo dnf install epel-release
 sudo dnf copr enable vhrabar/SecureEye
+sudo dnf copr enable vhrabar/python-extras
 sudo dnf install secure-eye
 ```
 
-The RPM packaging is still split into `libpam-secureeye`, `secureeye-authd` and
-the `secure-eye` metapackage that depends on both. On install, `secureeye-authd`
-builds its recognition virtualenv from the bundled wheels and enables the
-`secureeye-authd.service`.
+Installing enables `secureeye-authd.service`. On architectures without
+`python3-mediapipe` (anything other than x86_64), switch the backend before
+first use with `sudo secureEye config`.
 
-Alternatively, download the `.rpm` files from the
-[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and install
-them together:
+Alternatively, download the `.rpm` from the
+[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and let
+`dnf` resolve its dependencies:
 
 ```bash
-sudo dnf install ./libpam-secureeye-*.rpm ./secureeye-authd-*.rpm ./secure-eye-*.rpm
+sudo dnf install ./secure-eye-*.rpm
 ```
 
 > [!NOTE]
@@ -178,10 +190,10 @@ cd secureEye/archlinux/secureEye
 makepkg -si
 ```
 
-Like the `.deb` packages (and unlike the `.rpm` ones), the Arch build does
-**not** bundle a recognition virtualenv: every dependency is a real package and
-the daemon runs on the system interpreter, so there is nothing to rebuild after
-a Python upgrade. On `aarch64` there is no MediaPipe, so the package depends on
+As with the `.deb` and `.rpm` packages, the Arch build does **not** bundle a
+recognition virtualenv: every dependency is a real package and the daemon runs
+on the system interpreter, so there is nothing to rebuild after a Python
+upgrade. On `aarch64` there is no MediaPipe, so the package depends on
 `python-dlib` and ships `detector_backend = dlib` in the default config.
 
 Following Arch policy, the service is **not** started for you:
