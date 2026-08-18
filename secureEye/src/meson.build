@@ -129,6 +129,14 @@ install_data('dlib-data/install.sh', 'dlib-data/Readme.md', install_dir: dlibdat
 
 install_man('../SecureEye.1')
 
+# Interpreter baked into the systemd unit and the secureEye launcher. Both need
+# an absolute path, so honour python_path when it is one (packaging passes
+# -Dpython_path=/usr/bin/python3) and fall back to whatever meson found.
+runtime_python = paths_dict.get('python_path')
+if not runtime_python.startswith('/')
+    runtime_python = py.full_path()
+endif
+
 systemd = dependency('systemd', required : false)
 systemd_unit_dir = join_paths(get_option('prefix'), 'lib', 'systemd', 'system')
 if systemd.found()
@@ -142,7 +150,7 @@ authd_service = configure_file(
     input : 'systemd/secureeye-authd.service.in',
     output : 'secureeye-authd.service',
     configuration : configuration_data({
-                                           'python_path' : py.full_path(),
+                                           'python_path' : runtime_python,
                                            'py_sources_dir' : pysourcesrootdir,
                                        }),
 )
@@ -197,11 +205,9 @@ install_data(
 # endif
 
 cli_path = join_paths(pysourcesinstalldir, 'cli.py')
-authd_python = get_option('prefix') / 'lib' / 'secureeye-authd' / 'venv' / 'bin' / 'python3'
 conf_data = configuration_data({
     'script_path': cli_path,
-    'python_path': py.full_path(),
-    'authd_python': authd_python,
+    'python_path': runtime_python,
     'py_sources_dir': pysourcesrootdir,
 })
 

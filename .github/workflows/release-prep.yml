@@ -1,0 +1,108 @@
+name: Prepare release
+
+# Automates the manual part of cutting a release:
+#
+#   patch versions -> commit to the default branch -> tag it -> draft a release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 0.1.4 (no leading v)."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-prep
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare ${{ inputs.version }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Validate the version and check the tag is free
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          case "$VERSION" in
+            [0-9]*) ;;
+            *) echo "::error::Version '$VERSION' must start with a digit."; exit 1 ;;
+          esac
+          # Same rule release.yml enforces: rpm and deb want 1.0.0~rc1, Arch's
+          # pkgver allows neither '-' nor '~'.
+          case "$VERSION" in
+            *-*) echo "::error::'$VERSION' is a pre-release. rpm/deb/Arch cannot represent '-' consistently; use a plain X.Y.Z."; exit 1 ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "::error::Tag v${VERSION} already exists. Pick another version, or delete the tag first."
+            exit 1
+          fi
+          echo "v${VERSION} is free."
+
+      - name: Require notes under [Unreleased]
+        run: |
+          set -euo pipefail
+          if ! scripts/changelog-section.sh Unreleased >/dev/null 2>&1; then
+            echo "::error::CHANGELOG.md has no content under '## [Unreleased]'. Add the release notes first."
+            exit 1
+          fi
+          echo "Notes found under [Unreleased]:"
+          scripts/changelog-section.sh Unreleased
+
+      - name: Patch versions and date the changelog section
+        env:
+          VERSION: ${{ inputs.version }}
+          DEBEMAIL: "vedran.hrabar@outlook.com"
+          DEBFULLNAME: "Vedran Hrabar"
+        run: scripts/set-package-version.sh "$VERSION"
+
+      - name: Commit and tag
+        id: commit
+        env:
+          VERSION: ${{ inputs.version }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::error::Nothing changed; is CHANGELOG.md already at ${VERSION}?"
+            exit 1
+          fi
+          git commit -m "chore(release): ${VERSION}"
+
+          # Push the commit before tagging so the tag lands on the branch HEAD.
+          git push origin "HEAD:${BRANCH}"
+          git tag -a "v${VERSION}" -m "SecureEye ${VERSION}"
+          git push origin "refs/tags/v${VERSION}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Draft the release from CHANGELOG.md
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          scripts/changelog-section.sh "$VERSION" > /tmp/notes.md
+          gh release create "v${VERSION}" \
+            --draft \
+            --title "SecureEye ${VERSION}" \
+            --notes-file /tmp/notes.md \
+            --target "${{ steps.commit.outputs.sha }}"
+          url="$(gh release view "v${VERSION}" --json url --jq .url)"
+          {
+            echo "### Draft release for \`${VERSION}\` is ready"
+            echo ""
+            echo "Review it, then press **Publish** to start the release: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
