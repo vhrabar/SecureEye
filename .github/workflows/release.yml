@@ -1,0 +1,451 @@
+name: Release
+
+# Single entry point for a release:
+#
+#   test  ->  verify deb / rpm / arch build and install  ->  publish
+#
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (defaults to the latest tag). No leading v."
+        required: false
+        type: string
+      publish:
+        description: "Also publish to Launchpad, COPR and the AUR."
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+env:
+  FEDORA_IMAGE: fedora:44
+  ARCH_IMAGE: archlinux:base-devel
+  UBUNTU_IMAGE: ubuntu:26.04
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      publish: ${{ steps.ver.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: ver
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="$RELEASE_TAG"
+            version="${tag#v}"
+            publish=true
+          else
+            version="${INPUT_VERSION:-$(git describe --tags --abbrev=0 | sed 's/^v//')}"
+            tag="v${version}"
+            publish="${{ inputs.publish }}"
+          fi
+          case "$version" in
+            [0-9]*) ;;
+            *) echo "::error::Refusing to build version '$version' (must start with a digit)."; exit 1 ;;
+          esac
+          # A pre-release tag cannot be spelled the same way in all three
+          # formats: rpm and deb want 1.0.0~rc1, Arch's pkgver allows neither
+          # '-' nor '~', and the PKGBUILD derives its source URL from pkgver.
+          # Rather than publish three versions that sort differently, refuse.
+          case "$version" in
+            *-*) echo "::error::Pre-release tag '$tag' is not publishable: rpm/deb/Arch cannot represent '-' consistently. Tag a plain X.Y.Z release."; exit 1 ;;
+          esac
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+          echo "### secure-eye \`$version\` (tag \`$tag\`, publish: \`$publish\`)" >> "$GITHUB_STEP_SUMMARY"
+
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff
+        run: uv run --no-sync ruff check .
+
+      - name: Black
+        run: uv run --no-sync black --check .
+
+      - name: Pytest
+        run: uv run pytest tests/ -v
+
+  verify-deb:
+    name: Verify deb (${{ matrix.name }})
+    needs: [ version, test ]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: amd64
+            runner: ubuntu-24.04
+          - name: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            debhelper devscripts dpkg-dev build-essential fakeroot lintian \
+            meson ninja-build pkg-config \
+            libpam0g-dev libevdev-dev libinih-dev python3
+
+      - name: Set packaging version to ${{ needs.version.outputs.version }}
+        run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
+
+      - name: Stage debian/ at the source root
+        run: |
+          cp -r secureEye/debian ./debian
+          rm -rf secureEye/debian
+
+      - name: Build packages
+        run: dpkg-buildpackage -b -us -uc
+
+      # dpkg-buildpackage writes the artifacts to the parent directory.
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          mv ../*.deb ../*.ddeb dist/ 2>/dev/null || true
+          ls -la dist
+
+      - name: Lintian
+        run: lintian --fail-on error --tag-display-limit 0 dist/*.deb
+
+      - name: Install smoke test
+        run: |
+          docker run --rm -v "$PWD/dist:/debs:ro" "$UBUNTU_IMAGE" bash -euc '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends software-properties-common
+            # Recognition backends (python3-mediapipe, python3-dlib) live here.
+            add-apt-repository -y ppa:vhrabar/tools
+            apt-get install -y --no-install-recommends /debs/secure-eye_*.deb
+            dpkg -s secure-eye | grep -q "^Status: install ok installed"
+            # The split packages were merged away; nothing must resurrect them.
+            dpkg -s libpam-secureeye 2>/dev/null && { echo "libpam-secureeye reappeared"; exit 1; }
+            test -f /usr/lib/systemd/system/secureeye-authd.service
+            ls /usr/lib/*/security/pam_secureEye.so
+            test -x /usr/bin/secureEye
+            test -f /etc/secureEye/config.ini
+            echo "deb install smoke test passed."
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-rpm:
+    name: Verify rpm (${{ matrix.name }})
+    needs: [ version, test ]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86_64
+            runner: ubuntu-24.04
+          - name: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set packaging version to ${{ needs.version.outputs.version }}
+        run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
+
+      # build-rpm.sh feeds rpmbuild from "git archive HEAD", so the version
+      # bump has to be committed for the spec inside the tarball to match.
+      - name: Commit the bump locally
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "ci: set packaging version ${{ needs.version.outputs.version }}" || true
+
+      - name: Build packages (Fedora container)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src "$FEDORA_IMAGE" \
+            env PKG_VERSION="${{ needs.version.outputs.version }}" \
+                MARCH="" REL_SUFFIX="" \
+            bash scripts/build-rpm.sh
+
+      - name: Install smoke test
+        run: |
+          docker run --rm -v "$PWD/dist:/rpms:ro" "$FEDORA_IMAGE" bash -euc '
+            # The COPR CDN is occasionally slow; do not abort on a stall.
+            dnf_opts="--setopt=timeout=180 --setopt=retries=10 --setopt=minrate=0"
+            dnf install -y $dnf_opts dnf-plugins-core
+            # Recognition backends (python3-mediapipe on x86_64, python3-dlib).
+            dnf copr enable -y vhrabar/python-extras
+            dnf install -y $dnf_opts /rpms/*.rpm
+            rpm -q secure-eye
+            # The split packages were merged away; nothing must resurrect them.
+            rpm -q libpam-secureeye && { echo "libpam-secureeye reappeared"; exit 1; }
+            id secureeye
+            test -f /usr/lib/systemd/system/secureeye-authd.service
+            ls /usr/lib64/security/pam_secureEye.so
+            test -x /usr/bin/secureEye
+            test -f /etc/secureEye/config.ini
+            echo "rpm install smoke test passed."
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.name }}
+          path: dist/*.rpm
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-arch:
+    name: Verify arch pkg (x86_64)
+    needs: [ version, test ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Stage a build tree
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p archbuild
+          cp secureEye/archlinux/secureEye/PKGBUILD \
+             secureEye/archlinux/secureEye/secure-eye.install \
+             secureEye/archlinux/secureEye/.SRCINFO archbuild/
+          git archive --format=tar.gz --prefix="SecureEye-${VERSION}/" \
+            -o "archbuild/secure-eye-${VERSION}.tar.gz" HEAD
+
+      - name: Build and install (Arch container)
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e VERSION "$ARCH_IMAGE" bash -euxc '
+            pacman -Syu --noconfirm --needed \
+              base-devel meson ninja pkgconf pam libevdev libinih git pacman-contrib
+            useradd -m builder
+            chown -R builder /src/archbuild
+            su builder -c "
+              set -eux
+              cd /src/archbuild
+              sed -i -E \"s/^pkgver=.*/pkgver=$VERSION/;s/^pkgrel=.*/pkgrel=1/\" PKGBUILD
+              updpkgsums
+              makepkg --nodeps --noconfirm
+              makepkg --printsrcinfo > .SRCINFO.generated
+            "
+            pacman -U --noconfirm -dd "/src/archbuild/secure-eye-$VERSION-1-"*.pkg.tar.zst
+            pacman -Qi secure-eye
+            test -f /usr/lib/systemd/system/secureeye-authd.service
+            ls /usr/lib/security/pam_secureEye.so
+            test -x /usr/bin/secureEye
+            test -f /etc/secureEye/config.ini
+            test -f /usr/lib/sysusers.d/secure-eye.conf
+            echo "arch install smoke test passed."
+          '
+
+      - name: Check .SRCINFO is in sync with PKGBUILD
+        run: |
+          filter() { grep -vE '^\s*(pkgver|sha256sums|source) =' "$1"; }
+          if ! diff -u <(filter archbuild/.SRCINFO) <(filter archbuild/.SRCINFO.generated); then
+            echo "::error::.SRCINFO is stale — run 'makepkg --printsrcinfo > .SRCINFO' in secureEye/archlinux/secureEye/"
+            exit 1
+          fi
+          echo ".SRCINFO is in sync."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-x86_64
+          path: archbuild/*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-ppa:
+    name: Publish to Launchpad PPA
+    needs: [ version, test, verify-deb, verify-rpm, verify-arch ]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: launchpad-ppa
+      url: https://launchpad.net/~vhrabar/+archive/ubuntu/tools
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - name: Set packaging version to ${{ needs.version.outputs.version }}
+        run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
+
+      - name: Publish to Launchpad PPA
+        run: bash scripts/publish-ppa.sh
+        env:
+          REPOSITORY: "vhrabar/tools"
+          GPG_PRIVATE_KEY: ${{ secrets.PPA_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.PPA_GPG_PASSPHRASE }}
+          DEBEMAIL: "vedran.hrabar@outlook.com"
+          DEBFULLNAME: "Vedran Hrabar"
+
+          DEBIAN_DIR: "secureEye/debian"
+          SERIES: "questing resolute stonking"
+
+          NEW_VERSION_TEMPLATE: "{VERSION}~{SERIES}{REVISION}"
+
+          TARBALL: "https://github.com/${{ github.repository }}/archive/refs/tags/${{ needs.version.outputs.tag }}.tar.gz"
+
+  publish-copr:
+    name: Trigger COPR build
+    needs: [ version, test, verify-deb, verify-rpm, verify-arch ]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: copr
+      url: https://copr.fedorainfracloud.org/coprs/vhrabar/
+    steps:
+      - name: Fire the COPR webhook
+        env:
+          COPR_WEBHOOK_URL: ${{ secrets.COPR_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COPR_WEBHOOK_URL:-}" ]; then
+            echo "::error::COPR_WEBHOOK_URL secret is not set."
+            exit 1
+          fi
+          code=$(curl --silent --show-error --location \
+                      --output /tmp/copr.out --write-out '%{http_code}' \
+                      --retry 3 --retry-delay 5 --max-time 60 \
+                      -X POST "$COPR_WEBHOOK_URL")
+          echo "COPR responded $code"
+          cat /tmp/copr.out || true
+          case "$code" in
+            2*) ;;
+            *) echo "::error::COPR webhook returned HTTP $code"; exit 1 ;;
+          esac
+
+  publish-aur:
+    name: Publish to the AUR
+    needs: [ version, test, verify-deb, verify-rpm, verify-arch ]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: aur
+      url: https://aur.archlinux.org/packages/secure-eye
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump PKGBUILD and regenerate .SRCINFO
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e VERSION "$ARCH_IMAGE" bash -euxc '
+            pacman -Syu --noconfirm --needed base-devel pacman-contrib
+            useradd -m builder
+            chown -R builder /src
+            su builder -c "
+              set -eux
+              cd /src
+              scripts/set-package-version.sh $VERSION
+              cd secureEye/archlinux/secureEye
+              # Downloads the released GitHub tarball and rewrites every sum.
+              updpkgsums
+              makepkg --printsrcinfo > .SRCINFO
+            "
+          '
+          sudo chown -R "$(id -u):$(id -g)" .
+          grep -qE "^[[:space:]]*pkgver = ${VERSION}$" secureEye/archlinux/secureEye/.SRCINFO
+          git diff --stat
+
+      - name: Push to the AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AUR_SSH_PRIVATE_KEY:-}" ]; then
+            echo "::error::AUR_SSH_PRIVATE_KEY secret is not set."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t rsa,ed25519 aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes"
+
+          git clone ssh://aur@aur.archlinux.org/secure-eye.git /tmp/aur
+          cp secureEye/archlinux/secureEye/PKGBUILD \
+             secureEye/archlinux/secureEye/.SRCINFO \
+             secureEye/archlinux/secureEye/secure-eye.install \
+             /tmp/aur/
+
+          git -C /tmp/aur config user.name "Vedran Hrabar"
+          git -C /tmp/aur config user.email "vedran.hrabar@outlook.com"
+          git -C /tmp/aur add -A
+          if git -C /tmp/aur diff --cached --quiet; then
+            echo "AUR is already at ${VERSION}; nothing to push."
+          else
+            git -C /tmp/aur commit -m "Update to ${VERSION}"
+            git -C /tmp/aur push origin master
+            echo "Pushed secure-eye ${VERSION} to the AUR."
+          fi
+
+      - name: Commit the version bump back to ${{ github.event.repository.default_branch }}
+        continue-on-error: true
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add secureEye/debian/changelog secureEye/rpm/secure-eye.spec \
+                  secureEye/archlinux/secureEye/PKGBUILD \
+                  secureEye/archlinux/secureEye/.SRCINFO
+          if git diff --cached --quiet; then
+            echo "Packaging already at ${VERSION}; nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(packaging): set version ${VERSION}"
+          git fetch origin "$BRANCH"
+          git rebase "origin/$BRANCH"
+          git push origin "HEAD:$BRANCH"

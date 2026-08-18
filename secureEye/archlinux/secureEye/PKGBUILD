@@ -67,7 +67,6 @@ package() {
 		--tags pam_module,bin,py_sources,config,systemd,bash_completion,meta,man
 
 	install -dm755 "$pkgdir/etc/secureEye/models"
-.
 	install -Dm644 "$_srcname/secureEye/rpm/secure-eye.sysusers" \
 		"$pkgdir/usr/lib/sysusers.d/secure-eye.conf"
 

@@ -1,4 +1,4 @@
-VERSION := $(shell git describe --tags --exact-match 2>/dev/null | sed 's/^v//' | grep . || echo 0.1.1)
+VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//; s/-/~/g' | grep .)
 SPEC := secureEye/rpm/secure-eye.spec
 outdir ?= $(CURDIR)
 topdir := $(CURDIR)/.copr-rpmbuild
