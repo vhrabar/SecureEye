@@ -5,13 +5,51 @@ All notable changes to SecureEye are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Release automation reads this file: on `release: published`,
-`scripts/set-package-version.sh` renames `## [Unreleased]` to the tag and
-renders that section into `secureEye/debian/changelog` and the RPM
-`%changelog`. Write notes under `## [Unreleased]`; never edit the generated
-files by hand.
-
 ## [Unreleased]
+
+### Changed
+
+- SecureEye now ships as a single `secure-eye` package on Debian, RPM and Arch,
+  replacing `libpam-secureeye`, `secureeye-authd` and the transitional
+  metapackage. Existing installs are swapped automatically on upgrade.
+- The recognition backends are ordinary distribution packages instead of a
+  bundled virtualenv: `python3-mediapipe` (amd64/x86_64 only) and
+  `python3-dlib`, from `ppa:vhrabar/tools` on Ubuntu and
+  `copr:vhrabar/python-extras` on Fedora. Select one with `detector_backend` in
+  `/etc/secureEye/config.ini`.
+- The daemon and the `secureEye` launcher run on the system Python interpreter,
+  so nothing has to be rebuilt after a Python upgrade. The systemd unit and the
+  launcher now use the interpreter meson was configured with rather than a
+  hardcoded virtualenv path.
+- Releases no longer carry `.deb` or `.rpm` attachments. Install from the PPA,
+  COPR or the AUR instead.
+
+### Added
+
+- Arch Linux packaging is published to the AUR as `secure-eye`.
+- `CHANGELOG.md` is the single source of truth for release notes.
+  `scripts/set-package-version.sh` renders a release's section into the Debian
+  and RPM changelogs, and `scripts/changelog-section.sh` extracts it for the
+  GitHub release body.
+- A single release workflow that runs the tests, verifies the deb, RPM and Arch
+  packages build and install, and only then publishes to the Launchpad PPA,
+  COPR and the AUR. COPR builds are pinned to the released tag.
+- A Prepare release workflow that sets the version, tags it and drafts the
+  release from the changelog.
+
+### Removed
+
+- The install-time virtualenv, the vendored Python wheels and the dpkg trigger
+  that rebuilt the virtualenv whenever python3 was upgraded.
+
+### Fixed
+
+- Launchpad PPA uploads carry the real changelog entries; every upload
+  previously read "New upstream release".
+- Fedora and RHEL install instructions: the package ships no systemd preset, so
+  `secureeye-authd.service` has to be enabled manually. The README claimed
+  installation enabled it.
+- The CLI reference lists the `set` command.
 
 ## [0.1.3] - 2026-07-23
 
