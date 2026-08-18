@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Build SecureEye RPMs inside a Fedora container (GitHub release artifacts).
+# Build SecureEye RPMs inside a Fedora container, to verify the packaging.
+# Nothing is attached to GitHub releases; dist/*.rpm is kept only as a
+# short-lived workflow artifact. COPR does the real builds.
 # Env: PKG_VERSION (required), MARCH, REL_SUFFIX. Output: dist/*.rpm.
 # Nothing is vendored: the recognition backends are runtime Requires resolved
 # from copr:vhrabar/python-extras at install time.

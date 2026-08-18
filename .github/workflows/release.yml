@@ -20,7 +20,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.event.release.tag_name || github.ref }}
@@ -71,6 +71,20 @@ jobs:
           case "$version" in
             *-*) echo "::error::Pre-release tag '$tag' is not publishable: rpm/deb/Arch cannot represent '-' consistently. Tag a plain X.Y.Z release."; exit 1 ;;
           esac
+          if [ "$publish" = "true" ]; then
+            branch="${{ github.event.repository.default_branch }}"
+
+            git fetch --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+            git fetch origin "+refs/tags/${tag}:refs/tags/${tag}"
+            tag_sha="$(git rev-parse "refs/tags/${tag}^{commit}")"
+            head_sha="$(git rev-parse "refs/remotes/origin/${branch}")"
+            if [ "$tag_sha" != "$head_sha" ]; then
+              echo "::error::${tag} is at ${tag_sha}, but ${branch} is at ${head_sha}. The tag must be on ${branch} HEAD, otherwise COPR builds a different commit than the PPA and AUR. Move the tag to HEAD, or reset ${branch} to the tag, then re-run."
+              exit 1
+            fi
+            echo "$tag is on $branch HEAD ($tag_sha)"
+          fi
+
           {
             echo "version=$version"
             echo "tag=$tag"
@@ -191,17 +205,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set packaging version to ${{ needs.version.outputs.version }}
-        run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
-
-      # build-rpm.sh feeds rpmbuild from "git archive HEAD", so the version
-      # bump has to be committed for the spec inside the tarball to match.
-      - name: Commit the bump locally
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -am "ci: set packaging version ${{ needs.version.outputs.version }}" || true
-
+      # build-rpm.sh generates the changelogs from CHANGELOG.md and commits them
+      # locally itself, the same way COPR's .copr/Makefile does.
       - name: Build packages (Fedora container)
         run: |
           docker run --rm -v "$PWD:/src" -w /src "$FEDORA_IMAGE" \
@@ -212,14 +217,12 @@ jobs:
       - name: Install smoke test
         run: |
           docker run --rm -v "$PWD/dist:/rpms:ro" "$FEDORA_IMAGE" bash -euc '
-            # The COPR CDN is occasionally slow; do not abort on a stall.
             dnf_opts="--setopt=timeout=180 --setopt=retries=10 --setopt=minrate=0"
             dnf install -y $dnf_opts dnf-plugins-core
             # Recognition backends (python3-mediapipe on x86_64, python3-dlib).
             dnf copr enable -y vhrabar/python-extras
             dnf install -y $dnf_opts /rpms/*.rpm
             rpm -q secure-eye
-            # The split packages were merged away; nothing must resurrect them.
             rpm -q libpam-secureeye && { echo "libpam-secureeye reappeared"; exit 1; }
             id secureeye
             test -f /usr/lib/systemd/system/secureeye-authd.service
@@ -313,7 +316,10 @@ jobs:
         with:
           ref: ${{ needs.version.outputs.tag }}
 
-      - name: Set packaging version to ${{ needs.version.outputs.version }}
+      # debian/changelog is generated from CHANGELOG.md, not stored, so render
+      # it here. Deterministic, so this matches what CI verified and what COPR
+      # produces for the same commit.
+      - name: Generate packaging for ${{ needs.version.outputs.version }}
         run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
 
       - name: Publish to Launchpad PPA
@@ -330,36 +336,52 @@ jobs:
 
           NEW_VERSION_TEMPLATE: "{VERSION}~{SERIES}{REVISION}"
 
+          # The tag's tarball. debian/ is rendered from CHANGELOG.md above and
+          # handed to the build via DEBIAN_DIR, so it need not be in the tarball.
           TARBALL: "https://github.com/${{ github.repository }}/archive/refs/tags/${{ needs.version.outputs.tag }}.tar.gz"
 
   publish-copr:
-    name: Trigger COPR build
+    name: Build on COPR
     needs: [ version, test, verify-deb, verify-rpm, verify-arch ]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-24.04
+    container: fedora:44
     environment:
       name: copr
-      url: https://copr.fedorainfracloud.org/coprs/vhrabar/
+      url: https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/
     steps:
-      - name: Fire the COPR webhook
+      - name: Install copr-cli
+        run: dnf install -y --setopt=install_weak_deps=False copr-cli
+
+      # An API build pinned to the tag, rather than the custom webhook. The
+      # webhook rebuilds the package from its stored SCM config, whose
+      # committish is unset, so COPR would clone the default branch's HEAD and
+      # could build a different commit than the PPA and the AUR.
+      - name: Submit an SCM build for ${{ needs.version.outputs.tag }}
         env:
-          COPR_WEBHOOK_URL: ${{ secrets.COPR_WEBHOOK_URL }}
+          COPR_CONFIG_CONTENT: ${{ secrets.COPR_CONFIG }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
-          if [ -z "${COPR_WEBHOOK_URL:-}" ]; then
-            echo "::error::COPR_WEBHOOK_URL secret is not set."
+          if [ -z "${COPR_CONFIG_CONTENT:-}" ]; then
+            echo "::error::COPR_CONFIG secret is not set. Copy the token file from https://copr.fedorainfracloud.org/api/ into it."
             exit 1
           fi
-          code=$(curl --silent --show-error --location \
-                      --output /tmp/copr.out --write-out '%{http_code}' \
-                      --retry 3 --retry-delay 5 --max-time 60 \
-                      -X POST "$COPR_WEBHOOK_URL")
-          echo "COPR responded $code"
-          cat /tmp/copr.out || true
-          case "$code" in
-            2*) ;;
-            *) echo "::error::COPR webhook returned HTTP $code"; exit 1 ;;
-          esac
+          mkdir -p ~/.config
+          printf '%s\n' "$COPR_CONFIG_CONTENT" > ~/.config/copr
+          chmod 600 ~/.config/copr
+          grep -q '^\[copr-cli\]' ~/.config/copr \
+            || { echo "::error::COPR_CONFIG does not look like a copr-cli token file (no [copr-cli] section)."; exit 1; }
+
+          # --method make_srpm runs .copr/Makefile, which regenerates the
+          # changelogs from CHANGELOG.md for this exact commit.
+          copr-cli buildscm \
+            --clone-url "https://github.com/${{ github.repository }}" \
+            --commit "$TAG" \
+            --method make_srpm \
+            --nowait \
+            vhrabar/SecureEye
+
 
   publish-aur:
     name: Publish to the AUR
@@ -372,22 +394,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ needs.version.outputs.tag }}
 
-      - name: Bump PKGBUILD and regenerate .SRCINFO
+      # The tag is never moved, so archive/refs/tags/<tag>.tar.gz is stable and
+      # updpkgsums hashes exactly what users download. These sums are valid only
+      # in the AUR copy: in-tree they would have to hash an archive containing
+      # themselves, which has no fixed point.
+      - name: Set pkgver and checksum the released tarball
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           docker run --rm -v "$PWD:/src" -w /src -e VERSION "$ARCH_IMAGE" bash -euxc '
             pacman -Syu --noconfirm --needed base-devel pacman-contrib
-            useradd -m builder
-            chown -R builder /src
+            useradd -m builder && chown -R builder /src
             su builder -c "
               set -eux
               cd /src
               scripts/set-package-version.sh $VERSION
               cd secureEye/archlinux/secureEye
-              # Downloads the released GitHub tarball and rewrites every sum.
               updpkgsums
               makepkg --printsrcinfo > .SRCINFO
             "
@@ -425,27 +449,11 @@ jobs:
             echo "AUR is already at ${VERSION}; nothing to push."
           else
             git -C /tmp/aur commit -m "Update to ${VERSION}"
+            # HEAD:master, not master: secure-eye does not exist on the AUR
+            # yet, so the first clone is of an empty repo and the local branch
+            # name comes from init.defaultBranch. Where that is "main", a bare
+            # "push origin master" fails with "src refspec master does not
+            # match any". HEAD:master is correct either way.
             git -C /tmp/aur push origin HEAD:master
             echo "Pushed secure-eye ${VERSION} to the AUR."
           fi
-
-      - name: Commit the version bump back to ${{ github.event.repository.default_branch }}
-        continue-on-error: true
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-          BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add secureEye/debian/changelog secureEye/rpm/secure-eye.spec \
-                  secureEye/archlinux/secureEye/PKGBUILD \
-                  secureEye/archlinux/secureEye/.SRCINFO
-          if git diff --cached --quiet; then
-            echo "Packaging already at ${VERSION}; nothing to commit."
-            exit 0
-          fi
-          git commit -m "chore(packaging): set version ${VERSION}"
-          git fetch origin "$BRANCH"
-          git rebase "origin/$BRANCH"
-          git push origin "HEAD:$BRANCH"

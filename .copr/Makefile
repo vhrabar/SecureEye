@@ -7,6 +7,9 @@ topdir := $(CURDIR)/.copr-rpmbuild
 srpm:
 	dnf -y install git rpm-build
 	git config --global --add safe.directory $(CURDIR)
+	scripts/set-package-version.sh "$(VERSION)"
+	git -c user.name=copr -c user.email=copr@localhost \
+	    commit -qam "generated packaging for $(VERSION)" --allow-empty
 	mkdir -p "$(topdir)/SOURCES" "$(outdir)"
 	git archive --format=tar.gz \
 	    --prefix="secure-eye-$(VERSION)/" \
