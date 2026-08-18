@@ -78,6 +78,17 @@ Before submitting a PR:
 * Ensure code builds and runs
 * Add or update tests if applicable
 * Keep PRs focused on a single concern
+* Note user-visible changes under `## [Unreleased]` in `CHANGELOG.md`
+
+### Changelog
+
+`CHANGELOG.md` is the single source of truth for release notes, in
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Do not edit
+`secureEye/debian/changelog` or the `%changelog` in `secureEye/rpm/secure-eye.spec`
+by hand: on release, `scripts/set-package-version.sh` renames `## [Unreleased]`
+to the tag and renders that section into both, in each format's required
+layout. A release with no matching section still succeeds, but ships only
+"New upstream release X.Y.Z." to users.
 
 PRs may be rejected if they:
 

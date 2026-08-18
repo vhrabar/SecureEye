@@ -45,7 +45,7 @@ Early development. Core architecture and modules are being actively built.
 These mirror the package `Build-Depends` in `secureEye/debian/control`:
 
 - Meson 0.64 or higher, Ninja, pkg-config, a C++ compiler (`build-essential`)
-- Python 3 with pip (`python3`, `python3-pip`)
+- Python 3 (`python3`)
 - `libpam0g-dev`, `libevdev-dev`, `libinih-dev` (INIReader is provided by
   `libinih-dev`; it is **not** downloaded, the build runs with
   `--wrap-mode=nodownload`)
@@ -57,7 +57,7 @@ On **Debian / Ubuntu**:
 ```bash
 sudo apt-get update && sudo apt-get install -y \
     meson ninja-build pkg-config build-essential \
-    python3 python3-pip python3-venv \
+    python3 \
     libpam0g-dev libinih-dev libevdev-dev
 ```
 
@@ -80,46 +80,56 @@ meson compile -C build
 > builds (`.deb`, `.rpm` or the AUR package). Meson's default prefix is
 > `/usr/local`, and `/usr/local/lib/...` shadows the packaged `/usr/lib/...`
 > systemd unit (and `/usr/local/bin` shadows `/usr/bin`), which breaks the
-> daemon and CLI. On Debian and Fedora a bare `meson install` also does **not**
-> create the recognition virtualenv, that is built by the `secureeye-authd`
-> package at install time, so the daemon will not start. For a working system
-> install, build and install your distribution's packages below.
+> daemon and CLI. A bare `meson install` also does **not** pull in the
+> recognition backends (`python3-mediapipe` / `python3-dlib`) that the packages
+> depend on, so the daemon will not start. For a working system install, build
+> and install your distribution's packages below.
 
 ### Debian / Ubuntu & derivatives
 
-SecureEye ships as three packages:
+SecureEye ships as a single `secure-eye` package containing the C/C++ PAM
+module, the `secureeye-authd` daemon, the Python recognition runtime and the
+`secureEye` CLI. It replaces the older `libpam-secureeye` / `secureeye-authd`
+split, so `apt` swaps those out on upgrade.
 
-- `libpam-secureeye` — the C/C++ PAM module (no Python)
-- `secureeye-authd` — the authentication daemon and Python recognition runtime
-- `secure-eye` — a transitional metapackage that depends on both
-
-Download the latest `.deb` files from the
-[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and
-install all of them together so dependencies (including `python3-venv`) resolve:
-
-```bash
-sudo apt install ./libpam-secureeye_*.deb ./secureeye-authd_*.deb ./secure-eye_*.deb
-```
-
-On install, `secureeye-authd` builds its recognition virtualenv from the bundled
-wheels (this takes a short while) and enables the `secureeye-authd.service`.
-
-### PPA
+The recognition backends are ordinary packages rather than a bundled
+virtualenv, and they live in `ppa:vhrabar/tools`, so add that repository first
+either way:
 
 ```bash
 sudo add-apt-repository ppa:vhrabar/tools
-sudo apt update && sudo apt install secure-eye
+sudo apt update
+sudo apt install secure-eye
 ```
+
+- `python3-mediapipe` — the default backend, **amd64 only**
+- `python3-dlib` — the alternative backend, available on every architecture
+
+
+Unlike the RPM and Arch packages, the Debian package enables and starts
+`secureeye-authd.service` for you on install.
 
 ### Fedora, RHEL & RPM-based systems
 
-The easiest way is the
-[COPR repository](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/).
+SecureEye ships as a single `secure-eye` package containing the C/C++ PAM
+module, the `secureeye-authd` daemon, the Python recognition runtime and the
+`secureEye` CLI. It obsoletes the older `libpam-secureeye` / `secureeye-authd`
+split, so `dnf` swaps those out on upgrade.
+
+The recognition backends are ordinary packages rather than a bundled
+virtualenv, and they live in the
+[`vhrabar/python-extras`](https://copr.fedorainfracloud.org/coprs/vhrabar/python-extras/)
+COPR, so enable it alongside the
+[SecureEye COPR](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/):
+
+- `python3-mediapipe` — the default backend, **x86_64 only**
+- `python3-dlib` — the alternative backend, available on every architecture
 
 On **Fedora**:
 
 ```bash
 sudo dnf copr enable vhrabar/SecureEye
+sudo dnf copr enable vhrabar/python-extras
 sudo dnf install secure-eye
 ```
 
@@ -132,18 +142,15 @@ sudo dnf copr enable vhrabar/SecureEye
 sudo dnf install secure-eye
 ```
 
-This installs the same three packages as on Debian (`libpam-secureeye`,
-`secureeye-authd`, `secure-eye`). On install, `secureeye-authd` builds its
-recognition virtualenv from the bundled wheels and enables the
-`secureeye-authd.service`.
-
-Alternatively, download the `.rpm` files from the
-[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and install
-them together:
+The package ships no systemd preset, so `%systemd_post` leaves the unit
+disabled. Start it yourself:
 
 ```bash
-sudo dnf install ./libpam-secureeye-*.rpm ./secureeye-authd-*.rpm ./secure-eye-*.rpm
+sudo systemctl enable --now secureeye-authd.service
 ```
+
+On architectures without `python3-mediapipe` (anything other than x86_64),
+switch the backend before first use with `sudo secureEye config`.
 
 > [!NOTE]
 > On Fedora/RHEL there is no `pam-auth-update`, so the PAM module is **not**
@@ -152,37 +159,40 @@ sudo dnf install ./libpam-secureeye-*.rpm ./secureeye-authd-*.rpm ./secure-eye-*
 
 ### Arch Linux & derivatives
 
-SecureEye is packaged for the AUR as `secureeye`, which builds two packages:
+SecureEye is packaged for the AUR as a single `secure-eye` package containing
+the C/C++ PAM module, the `secureeye-authd` daemon, the Python recognition
+runtime and the `secureEye` CLI. It replaces the older `libpam-secureeye` /
+`secureeye-authd` split, so pacman swaps those out on upgrade.
 
-- `libpam-secureeye`: the C/C++ PAM module (no Python)
-- `secureeye-authd`: the authentication daemon and Python recognition runtime
-
-There is no transitional metapackage; install both. With an AUR helper:
+With an AUR helper:
 
 ```bash
-paru -S libpam-secureeye secureeye-authd   # or: yay -S ...
+paru -S secure-eye   # or: yay -S ...
 ```
 
-Or manually with `makepkg` (the recognition dependencies `python-mediapipe`
-and `python-sounddevice` also come from the AUR and must be built first):
+Or manually with `makepkg` (the recognition backends `python-dlib` and
+`python-mediapipe` also come from the AUR and are built first):
 
 ```bash
-git clone https://aur.archlinux.org/secureeye.git
-cd secureeye
+git clone https://aur.archlinux.org/secure-eye.git
+cd secure-eye
 makepkg -si
 ```
 
-You can also build straight from a checkout of this repository:
+The packaging sources also live in this repository, under
+`secureEye/archlinux/secureEye/`:
 
 ```bash
 cd secureEye/archlinux/secureEye
 makepkg -si
 ```
 
-Unlike the `.deb`/`.rpm` packages, the Arch build does **not** bundle a recognition virtualenv: every dependency is a
-real package and the daemon runs on the system interpreter, so there is nothing to rebuild after a Python upgrade. On
-`aarch64` there is no MediaPipe, so the package depends on
-`python-dlib` and ships `detector_backend = dlib` in the default config.
+As with the `.deb` and `.rpm` packages, the Arch build does **not** bundle a
+recognition virtualenv: every dependency is a real package and the daemon runs
+on the system interpreter, so there is nothing to rebuild after a Python
+upgrade. `python-mediapipe` is the default backend and is x86_64 only;
+`python-dlib` is the alternative. On other architectures set
+`detector_backend = dlib` in `/etc/secureEye/config.ini` before first use.
 
 Following Arch policy, the service is **not** started for you:
 
@@ -284,6 +294,7 @@ secureEye [-U user] [-y] command [argument]
 | `disable`  | Disable or enable SecureEye                 |
 | `list`     | List all saved face models for a user       |
 | `remove`   | Remove a specific model for a user          |
+| `set`      | Set a config option (`secureEye set certainty 3`) |
 | `snapshot` | Take a snapshot of your camera input        |
 | `test`     | Test the camera and recognition methods     |
 | `version`  | Print the current version number            |
@@ -301,7 +312,8 @@ secureEye [-U user] [-y] command [argument]
 ### Requirements
 
 * Python 3.12+
-* pip / virtualenv
+* [uv](https://docs.astral.sh/uv/) — `uv sync` provisions the environment; see
+  the [Contributing guide](CONTRIBUTING.md)
 
 ### Docker PAM Automation
 

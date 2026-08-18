@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Build SecureEye RPMs inside a Fedora container (GitHub release artifacts).
+# Build SecureEye RPMs inside a Fedora container, to verify the packaging.
+# Nothing is attached to GitHub releases; dist/*.rpm is kept only as a
+# short-lived workflow artifact. COPR does the real builds.
 # Env: PKG_VERSION (required), MARCH, REL_SUFFIX. Output: dist/*.rpm.
-# The recognition wheels are fetched/compiled per-arch by the spec's %build.
+# Nothing is vendored: the recognition backends are runtime Requires resolved
+# from copr:vhrabar/python-extras at install time.
 set -euxo pipefail
 
 : "${PKG_VERSION:?PKG_VERSION is required}"
@@ -11,14 +14,18 @@ dnf install -y --setopt=install_weak_deps=False \
     rpm-build rpmdevtools rpmlint git-core tar gzip dnf-plugins-core
 
 git config --global --add safe.directory "$PWD"
-# Install BuildRequires (honours the spec's %ifnarch dlib toolchain on aarch64).
+
+scripts/set-package-version.sh "$PKG_VERSION"
+git -c user.name=ci -c user.email=ci@localhost \
+    commit -qam "generated packaging for ${PKG_VERSION}" --allow-empty
+
 dnf builddep -y --define "pkg_version ${PKG_VERSION}" "$SPEC"
 
 rpmdev-setuptree
 git archive --format=tar.gz \
     --prefix="secure-eye-${PKG_VERSION}/" \
     -o "$HOME/rpmbuild/SOURCES/secure-eye-${PKG_VERSION}.tar.gz" HEAD
-cp secureEye/rpm/secureeye-authd.sysusers "$HOME/rpmbuild/SOURCES/"
+cp secureEye/rpm/secure-eye.sysusers "$HOME/rpmbuild/SOURCES/"
 
 rpmbuild -bb "$SPEC" \
     --define "pkg_version ${PKG_VERSION}" \

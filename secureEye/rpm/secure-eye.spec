@@ -8,29 +8,25 @@
 # Sources:
 #   Source0  git archive of the tree
 #   Source1  sysusers fragment
-# Recognition wheels are downloaded/compiled per-chroot in %%build (needs
-# network — enable "internet access" on COPR), so one SRPM serves every
-# chroot's Python version/arch.
+#
+# Nothing is bundled: the recognition backends are ordinary packages from
+# copr:vhrabar/python-extras (python3-mediapipe, x86_64 only; python3-dlib) and
+# the rest come from Fedora. Add that COPR as an external repository of the
+# SecureEye project so the builds and installs can resolve them.
 
-%{!?pkg_version:%global pkg_version 0.1.1}
+%{!?pkg_version:%global pkg_version 0.1.2}
 
 
 %undefine __brp_python_bytecompile
 
-%global authd_home %{_prefix}/lib/secureeye-authd
-
-# dlib recognition backend for non-x86_64 -> temp till python3-dlib is
-# ported from ppa/vhrabar
-%global dlib_version 20.0.1
-
 Name:           secure-eye
 Version:        %{pkg_version}
 Release:        1%{?rel_suffix}%{?dist}
-Summary:        Transitional metapackage for SecureEye split packages
+Summary:        SecureEye face authentication for Linux
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/vhrabar/secureEye
 Source0:        %{name}-%{version}.tar.gz
-Source1:        secureeye-authd.sysusers
+Source1:        secure-eye.sysusers
 
 BuildRequires:  meson >= 0.64
 BuildRequires:  ninja-build
@@ -42,62 +38,47 @@ BuildRequires:  libevdev-devel
 BuildRequires:  inih-devel
 BuildRequires:  python3-devel
 BuildRequires:  systemd-rpm-macros
-# %%build downloads the recognition wheels for this chroot's Python.
-BuildRequires:  python3-pip
 
-# Non-x86_64 also compiles the dlib wheel from source in %%build (see below).
-%ifnarch x86_64
-BuildRequires:  cmake
-BuildRequires:  make
-BuildRequires:  python3-setuptools
-BuildRequires:  python3-wheel
-BuildRequires:  openblas-devel
-BuildRequires:  libjpeg-turbo-devel
-BuildRequires:  libpng-devel
-%endif
-
-Requires:       libpam-secureeye = %{version}-%{release}
-Requires:       secureeye-authd = %{version}-%{release}
-
-%description
-Transitional metapackage that depends on the split SecureEye components
-(libpam-secureeye and secureeye-authd).
-
-%package -n libpam-secureeye
-Summary:        SecureEye PAM module
-
-%description -n libpam-secureeye
-C/C++ PAM module for SecureEye face-authentication integration.
-This package contains only PAM-facing components.
-
-Unlike Debian/Ubuntu there is no pam-auth-update on Fedora; enable the
-module manually or via an authselect custom profile (see README.Fedora.md).
-
-%package -n secureeye-authd
-Summary:        SecureEye authentication daemon and Python runtime components
 Requires:       python3 >= 3.12
-# %post builds the recognition venv with `python3 -m venv` + pip; on minimal
-# Fedora that tooling is not pulled in by python3 alone (deb needs python3-venv).
-Requires:       python3-pip
 Requires:       python3-numpy
 Requires:       python3-opencv
 Requires:       python3-matplotlib
 Requires:       python3-cffi
-Requires:       portaudio
+# Recognition backends, from copr:vhrabar/python-extras. mediapipe is the
+# default backend and is x86_64-only; dlib is the alternative and the only
+# backend on other architectures.
+%ifarch x86_64
+Requires:       python3-mediapipe
+%endif
+Requires:       python3-dlib
 Requires:       v4l-utils
-Recommends:     libpam-secureeye
+# Optional code paths: the ffmpeg recording plugin and the hotkey rubberstamp
+# import these lazily and degrade gracefully when they are absent.
+Suggests:       python3-sounddevice
+Suggests:       python3-ffmpeg-python
+Suggests:       python3-keyboard
 %{?sysusers_requires_compat}
 %{?systemd_requires}
-# Wheels vendored into the runtime venv (see requirements-vendor.txt):
-Provides:       bundled(python3dist(mediapipe))
-Provides:       bundled(python3dist(ffmpeg-python))
-Provides:       bundled(python3dist(keyboard))
 
-%description -n secureeye-authd
-Helper daemon and Python runtime stack used by SecureEye face
-authentication. Includes systemd service assets and CLI tooling.
-The recognition virtualenv is built at install time (%%post) from
-wheels bundled in %{authd_home}/wheels — no network access is needed.
+# Merged from the former split packages.
+Provides:       libpam-secureeye = %{version}-%{release}
+Provides:       secureeye-authd = %{version}-%{release}
+Obsoletes:      libpam-secureeye < %{version}-%{release}
+Obsoletes:      secureeye-authd < %{version}-%{release}
+
+%description
+SecureEye authenticates Linux users with their face. This package ships the
+complete stack: the C/C++ PAM module, the secureeye-authd authentication
+daemon it talks to over a UNIX socket, the Python recognition runtime and the
+secureEye command line tool.
+
+The recognition backend is selected with detector_backend in
+/etc/secureEye/config.ini: mediapipe (the default, x86_64 only) or dlib. The
+daemon runs on the system Python interpreter, so there is nothing to rebuild
+after a Python upgrade.
+
+Unlike Debian/Ubuntu there is no pam-auth-update on Fedora; enable the module
+manually or via an authselect custom profile (see README.Fedora.md).
 
 %prep
 %autosetup -n %{name}-%{version}
@@ -115,26 +96,10 @@ meson setup %{_vpath_builddir} . \
     --libdir=%{_lib} \
     -Dpython.bytecompile=-1 \
     -Dinstall_pam_config=false \
+    -Dpython_path=%{_bindir}/python3 \
     -Dconfig_dir=%{_sysconfdir}/secureEye \
     -Duser_models_dir=%{_sysconfdir}/secureEye/models
 meson compile -C %{_vpath_builddir}
-
-# Populate wheels/ with the recognition runtime wheels matching this chroot's
-# Python and arch (installed into the venv by %%post). Downloads from PyPI, so
-# the build needs network — enable "internet access" on the COPR project.
-rm -rf wheels && mkdir -p wheels
-%ifarch x86_64
-python3 -m pip download --only-binary=:all: --no-deps --no-cache-dir \
-    --dest wheels -r requirements-vendor.txt
-%else
-# No mediapipe wheel for this arch; and Fedora/EPEL ship no python3-dlib and
-# there is no prebuilt aarch64 dlib wheel, so compile it from source.
-grep -iv '^[[:space:]]*mediapipe' requirements-vendor.txt > wheels-reqs.txt
-python3 -m pip download --only-binary=:all: --no-deps --no-cache-dir \
-    --dest wheels -r wheels-reqs.txt
-python3 -m pip wheel --no-deps --no-build-isolation --no-cache-dir \
-    --wheel-dir wheels "dlib==%{dlib_version}"
-%endif
 
 %install
 DESTDIR=%{buildroot} meson install -C %{_vpath_builddir}
@@ -145,75 +110,28 @@ rm -rf %{buildroot}%{_datadir}/dlib-data
 install -d -m 0755 %{buildroot}%{_sysconfdir}/secureEye/models
 
 # sysusers fragment.
-install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secureeye-authd.conf
+install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 
-# Vendored wheels + venv requirements
-install -d -m 0755 %{buildroot}%{authd_home}/wheels
-%ifarch x86_64
-install -m 0644 requirements-vendor.txt %{buildroot}%{authd_home}/requirements.txt
-# skip the aarch64-only dlib wheel here.
-for whl in wheels/*.whl; do
-    case "$(basename "$whl")" in
-        dlib-*) echo "Skipping $whl on %{_arch}" ;;
-        *) cp "$whl" %{buildroot}%{authd_home}/wheels/ ;;
-    esac
-done
-%else
+%pre
+%sysusers_create_compat %{SOURCE1}
 
-grep -iv '^[[:space:]]*mediapipe' requirements-vendor.txt > reqs-filtered.txt
-echo 'dlib' >> reqs-filtered.txt
-install -m 0644 reqs-filtered.txt %{buildroot}%{authd_home}/requirements.txt
-for whl in wheels/*.whl; do
-    case "$(basename "$whl")" in
-        mediapipe-*) echo "Skipping $whl on %{_arch}" ;;
-        *) cp "$whl" %{buildroot}%{authd_home}/wheels/ ;;
-    esac
-done
-sed -i 's/^detector_backend = mediapipe/detector_backend = dlib/' \
-    %{buildroot}%{_sysconfdir}/secureEye/config.ini
-%endif
-
-%pre -n secureeye-authd
-%sysusers_create_compat %{_sysusersdir}/secureeye-authd.conf
-
-%post -n secureeye-authd
+%post
 %systemd_post secureeye-authd.service
-# Build (or rebuild on upgrade) the recognition venv from the bundled wheels.
-rm -rf %{authd_home}/venv
-python3 -m venv --system-site-packages %{authd_home}/venv
-# --no-deps: install the vendored wheels as-is
-%{authd_home}/venv/bin/pip install --no-index --no-deps --no-cache-dir \
-    --find-links %{authd_home}/wheels \
-    -r %{authd_home}/requirements.txt
 
-%preun -n secureeye-authd
+%preun
 %systemd_preun secureeye-authd.service
 
-%postun -n secureeye-authd
+%postun
 %systemd_postun_with_restart secureeye-authd.service
-if [ "$1" -eq 0 ]; then
-    rm -rf %{authd_home}/venv
-fi
 
 %files
-# metapackage: no files
-
-%files -n libpam-secureeye
 %license LICENSE licenses/MIT.txt
-%doc NOTICE secureEye/rpm/README.Fedora.md
-%{_libdir}/security/pam_secureEye.so
-
-%files -n secureeye-authd
-%license LICENSE licenses/MIT.txt
-%doc NOTICE README.md
+%doc NOTICE README.md secureEye/rpm/README.Fedora.md
 %{_bindir}/secureEye
+%{_libdir}/security/pam_secureEye.so
 %{_libdir}/secureEye/
-%dir %{authd_home}
-%{authd_home}/wheels/
-%{authd_home}/requirements.txt
-%ghost %dir %{authd_home}/venv
 %{_unitdir}/secureeye-authd.service
-%{_sysusersdir}/secureeye-authd.conf
+%{_sysusersdir}/secure-eye.conf
 %{_datadir}/bash-completion/completions/secureEye
 %dir %{_datadir}/secureEye
 %{_datadir}/secureEye/logo.png
@@ -223,5 +141,12 @@ fi
 %dir %{_sysconfdir}/secureEye/models
 
 %changelog
+* Mon Aug 17 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.1.2-1
+- Merge libpam-secureeye and secureeye-authd into a single secure-eye package
+  and drop the transitional metapackage
+- Take the recognition backends from copr:vhrabar/python-extras
+  (python3-mediapipe on x86_64, python3-dlib) instead of bundling wheels
+- Drop the install-time virtualenv; the daemon runs on the system python3
+
 * Thu Jul 02 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.1.1-1
 - Initial RPM packaging

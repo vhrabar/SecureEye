@@ -127,6 +127,9 @@ debian/howdy
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 
+# JetBrains IDEs
+.idea/
+
 # Local History for Visual Studio Code
 .history/
 
@@ -135,3 +138,4 @@ debian/howdy
 
 # Meson
 subprojects/
+archbuild/
