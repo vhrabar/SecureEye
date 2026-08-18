@@ -1,7 +1,7 @@
 # Maintainer: Vedran Hrabar <vedran.hrabar@outlook.com>
 
 pkgname=secure-eye
-pkgver=0.1.2
+pkgver=0.1.4
 pkgrel=1
 pkgdesc="Face authentication for Linux"
 arch=('x86_64' 'aarch64')
