@@ -240,8 +240,18 @@ for s in $SERIES; do
 
     echo "New version: $newversion"
 
+    if [[ "$is_native" == "1" && -f "$debian_dir/changelog" ]]; then
+        sed -E "0,/^[^ ]+ \([^)]+\) [^;]+; urgency=[^ ]+/s//$package ($newversion) $s; urgency=medium/" \
+            "$debian_dir/changelog" > debian/changelog
+
+        head -1 debian/changelog | grep -qF "($newversion)" || {
+            echo "Failed to set the version in the native changelog" >&2
+            exit 1
+        }
+        echo "Changelog top entry:"
+        head -8 debian/changelog
     # Use provided changelog if KEEP_CHANGELOG is set
-    if [[ -n $KEEP_CHANGELOG ]]; then
+    elif [[ -n $KEEP_CHANGELOG ]]; then
         # Ensure the changelog exists in the $DEBIAN_DIR
         if [[ ! -f $debian_dir/changelog ]]; then
             echo "KEEP_CHANGELOG is set, but the changelog file does not exist"

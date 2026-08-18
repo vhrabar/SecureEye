@@ -12,6 +12,11 @@ dnf install -y --setopt=install_weak_deps=False \
     rpm-build rpmdevtools rpmlint git-core tar gzip dnf-plugins-core
 
 git config --global --add safe.directory "$PWD"
+
+scripts/set-package-version.sh "$PKG_VERSION"
+git -c user.name=ci -c user.email=ci@localhost \
+    commit -qam "generated packaging for ${PKG_VERSION}" --allow-empty
+
 dnf builddep -y --define "pkg_version ${PKG_VERSION}" "$SPEC"
 
 rpmdev-setuptree
