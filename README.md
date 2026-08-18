@@ -99,16 +99,15 @@ either way:
 ```bash
 sudo add-apt-repository ppa:vhrabar/tools
 sudo apt update
+sudo apt install secure-eye
 ```
 
 - `python3-mediapipe` — the default backend, **amd64 only**
 - `python3-dlib` — the alternative backend, available on every architecture
 
-#### PPA
 
-```bash
-sudo apt install secure-eye
-```
+Unlike the RPM and Arch packages, the Debian package enables and starts
+`secureeye-authd.service` for you on install.
 
 ### Fedora, RHEL & RPM-based systems
 
@@ -140,21 +139,18 @@ plugin and dependencies):
 ```bash
 sudo dnf install epel-release
 sudo dnf copr enable vhrabar/SecureEye
-sudo dnf copr enable vhrabar/python-extras
 sudo dnf install secure-eye
 ```
 
-Installing enables `secureeye-authd.service`. On architectures without
-`python3-mediapipe` (anything other than x86_64), switch the backend before
-first use with `sudo secureEye config`.
-
-Alternatively, download the `.rpm` from the
-[GitHub releases page](https://github.com/vhrabar/SecureEye/releases) and let
-`dnf` resolve its dependencies:
+The package ships no systemd preset, so `%systemd_post` leaves the unit
+disabled. Start it yourself:
 
 ```bash
-sudo dnf install ./secure-eye-*.rpm
+sudo systemctl enable --now secureeye-authd.service
 ```
+
+On architectures without `python3-mediapipe` (anything other than x86_64),
+switch the backend before first use with `sudo secureEye config`.
 
 > [!NOTE]
 > On Fedora/RHEL there is no `pam-auth-update`, so the PAM module is **not**
@@ -183,7 +179,8 @@ cd secure-eye
 makepkg -si
 ```
 
-You can also build straight from a checkout of this repository:
+The packaging sources also live in this repository, under
+`secureEye/archlinux/secureEye/`:
 
 ```bash
 cd secureEye/archlinux/secureEye
@@ -297,6 +294,7 @@ secureEye [-U user] [-y] command [argument]
 | `disable`  | Disable or enable SecureEye                 |
 | `list`     | List all saved face models for a user       |
 | `remove`   | Remove a specific model for a user          |
+| `set`      | Set a config option (`secureEye set certainty 3`) |
 | `snapshot` | Take a snapshot of your camera input        |
 | `test`     | Test the camera and recognition methods     |
 | `version`  | Print the current version number            |
@@ -314,7 +312,8 @@ secureEye [-U user] [-y] command [argument]
 ### Requirements
 
 * Python 3.12+
-* pip / virtualenv
+* [uv](https://docs.astral.sh/uv/) — `uv sync` provisions the environment; see
+  the [Contributing guide](CONTRIBUTING.md)
 
 ### Docker PAM Automation
 
