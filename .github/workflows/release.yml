@@ -425,7 +425,7 @@ jobs:
             echo "AUR is already at ${VERSION}; nothing to push."
           else
             git -C /tmp/aur commit -m "Update to ${VERSION}"
-            git -C /tmp/aur push origin master
+            git -C /tmp/aur push origin HEAD:master
             echo "Pushed secure-eye ${VERSION} to the AUR."
           fi
 
