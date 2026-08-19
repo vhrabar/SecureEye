@@ -14,7 +14,7 @@
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
-%{!?pkg_version:%global pkg_version 0.2.0}
+%{!?pkg_version:%global pkg_version 0.2.1}
 
 
 %undefine __brp_python_bytecompile
@@ -141,6 +141,15 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 %dir %{_sysconfdir}/secureEye/models
 
 %changelog
+* Wed Aug 19 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.2.1-1
+- Fixed: COPR builds failed in the source stage, before any chroot was
+  built: `.copr/Makefile` resolved the release version with `git describe`
+  while make parsed the file, which happens before the recipe installs git.
+  The version came out empty and `set-package-version.sh` aborted. It is now
+  resolved inside the recipe, after git is installed, and a clone with no
+  reachable tag fails with a message that says so rather than with a blank
+  version.
+
 * Tue Aug 18 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.2.0-1
 - Changed: SecureEye now ships as a single `secure-eye` package on Debian,
   RPM and Arch, replacing `libpam-secureeye`, `secureeye-authd` and the
