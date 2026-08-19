@@ -1,3 +1,16 @@
+secure-eye (0.2.1) unstable; urgency=medium
+
+  * Fixed
+    - COPR builds failed in the source stage, before any chroot was built:
+      `.copr/Makefile` resolved the release version with `git describe`
+      while make parsed the file, which happens before the recipe installs
+      git. The version came out empty and `set-package-version.sh` aborted.
+      It is now resolved inside the recipe, after git is installed, and a
+      clone with no reachable tag fails with a message that says so rather
+      than with a blank version.
+
+ -- Vedran Hrabar <vedran.hrabar@outlook.com>  Wed, 19 Aug 2026 00:00:00 +0000
+
 secure-eye (0.2.0) unstable; urgency=medium
 
   * Changed
