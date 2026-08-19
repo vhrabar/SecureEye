@@ -14,10 +14,16 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: release-prep
   cancel-in-progress: false
+
+env:
+  # Integration branch the release commit is merged back into once it lands on
+  # the default branch.
+  DEV_BRANCH: dev
 
 jobs:
   prepare:
@@ -105,4 +111,80 @@ jobs:
             echo "### Draft release for \`${VERSION}\` is ready"
             echo ""
             echo "Review it, then press **Publish** to start the release: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Back-merge the release commit into the integration branch
+        env:
+          VERSION: ${{ inputs.version }}
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # The release commit exists only on the default branch: it dates the
+          # CHANGELOG.md section, opens a fresh [Unreleased], and bumps the
+          # version in debian/changelog, the rpm spec and the PKGBUILD. Left
+          # alone, $DEV_BRANCH keeps the stale version and re-promotes the
+          # already-released notes on the next release.
+          #
+          # Merging now, before new notes accumulate, is what keeps it clean:
+          # the conflict to avoid is this commit rewriting the [Unreleased]
+          # heading while $DEV_BRANCH has added bullets directly underneath it.
+          #
+          # A release is never failed over a back-merge: the tag is already
+          # pushed and the draft already written, so anything that cannot be
+          # merged and pushed outright becomes a pull request instead.
+
+          # Push $1 as the back-merge branch and open a PR for it. $2 says why.
+          open_pr() {
+            local sha=$1 reason=$2 head="chore/backmerge-v${VERSION}" url
+            git push -f origin "${sha}:refs/heads/${head}"
+            gh pr create \
+              --base "$DEV_BRANCH" \
+              --head "$head" \
+              --title "chore: back-merge ${VERSION} into ${DEV_BRANCH}" \
+              --body "$(printf '%s\n\n%s\n' \
+                  "Carries the \`chore(release): ${VERSION}\` commit from \`${BRANCH}\` back to \`${DEV_BRANCH}\`: the dated CHANGELOG.md section, the reopened \`[Unreleased]\`, and the version bumps in \`debian/changelog\`, the rpm spec and the PKGBUILD." \
+                  "Opened automatically because ${reason}. Merge it (do not squash) before adding new notes under \`[Unreleased]\`, otherwise the next back-merge conflicts too.")" \
+              >/dev/null 2>&1 || true
+            url="$(gh pr view "$head" --json url --jq .url)"
+            {
+              echo "### Back-merge into \`${DEV_BRANCH}\` needs a hand"
+              echo ""
+              echo "Could not merge and push directly because ${reason}."
+              echo "Review and merge: $url"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Back-merge into ${DEV_BRANCH} left as a pull request: $url"
+          }
+
+          if ! git ls-remote --exit-code --heads origin "$DEV_BRANCH" >/dev/null 2>&1; then
+            echo "No '${DEV_BRANCH}' branch on origin; nothing to back-merge."
+            exit 0
+          fi
+
+          git fetch --no-tags origin "+refs/heads/${DEV_BRANCH}:refs/remotes/origin/${DEV_BRANCH}"
+          git checkout -B "$DEV_BRANCH" "origin/${DEV_BRANCH}"
+
+          if git merge-base --is-ancestor "$RELEASE_SHA" HEAD; then
+            echo "${DEV_BRANCH} already contains ${VERSION}."
+            exit 0
+          fi
+
+          if ! git merge --no-ff "$RELEASE_SHA" \
+                 -m "chore: back-merge ${VERSION} into ${DEV_BRANCH}"; then
+            git merge --abort
+            open_pr "$RELEASE_SHA" "the merge conflicts with \`${DEV_BRANCH}\`"
+            exit 0
+          fi
+
+          if ! git push origin "$DEV_BRANCH"; then
+            open_pr "$(git rev-parse HEAD)" "the push to \`${DEV_BRANCH}\` was rejected"
+            exit 0
+          fi
+
+          {
+            echo "### \`${VERSION}\` back-merged into \`${DEV_BRANCH}\`"
+            echo ""
+            echo "The version bumps and the reopened \`[Unreleased]\` are on \`${DEV_BRANCH}\`."
           } >> "$GITHUB_STEP_SUMMARY"
