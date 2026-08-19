@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- COPR builds failed in the source stage, before any chroot was built:
+  `.copr/Makefile` resolved the release version with `git describe` while make
+  parsed the file, which happens before the recipe installs git. The version
+  came out empty and `set-package-version.sh` aborted. It is now resolved
+  inside the recipe, after git is installed, and a clone with no reachable tag
+  fails with a message that says so rather than with a blank version.
+
+## [0.2.0] - 2026-08-18
+
 ### Changed
 
 - SecureEye now ships as a single `secure-eye` package on Debian, RPM and Arch,
