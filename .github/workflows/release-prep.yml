@@ -21,8 +21,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Integration branch the release commit is merged back into once it lands on
-  # the default branch.
   DEV_BRANCH: dev
 
 jobs:
@@ -122,21 +120,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The release commit exists only on the default branch: it dates the
-          # CHANGELOG.md section, opens a fresh [Unreleased], and bumps the
-          # version in debian/changelog, the rpm spec and the PKGBUILD. Left
-          # alone, $DEV_BRANCH keeps the stale version and re-promotes the
-          # already-released notes on the next release.
-          #
-          # Merging now, before new notes accumulate, is what keeps it clean:
-          # the conflict to avoid is this commit rewriting the [Unreleased]
-          # heading while $DEV_BRANCH has added bullets directly underneath it.
-          #
-          # A release is never failed over a back-merge: the tag is already
-          # pushed and the draft already written, so anything that cannot be
-          # merged and pushed outright becomes a pull request instead.
-
-          # Push $1 as the back-merge branch and open a PR for it. $2 says why.
           open_pr() {
             local sha=$1 reason=$2 head="chore/backmerge-v${VERSION}" url
             git push -f origin "${sha}:refs/heads/${head}"
