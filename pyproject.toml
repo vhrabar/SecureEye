@@ -11,11 +11,11 @@ authors = [
 
 dependencies = [
 	"ffmpeg-python==0.2.0",
-	"keras==3.15.0",
+	"keras==3.15.1",
 	"keyboard==0.13.5",
-	"mediapipe==0.10.33",
-	"numpy==2.3.4",
-	"opencv-contrib-python==4.13.0.92",
+	"mediapipe==1.0.1",
+	"numpy==2.5.2",
+	"opencv-contrib-python==5.0.0.93",
 ]
 
 [tool.uv]
@@ -24,9 +24,9 @@ package = false
 [dependency-groups]
 dev = [
 	"pytest==9.1.1",
-	"ruff==0.16.0",
-	"mypy==2.3.0",
-	"numpy==2.3.4",
+	"ruff==0.16.5",
+	"mypy==2.3.1",
+	"numpy==2.5.2",
 ]
 
 [tool.ruff]
