@@ -40,7 +40,7 @@ jobs:
       tag: ${{ steps.ver.outputs.tag }}
       publish: ${{ steps.ver.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -96,10 +96,10 @@ jobs:
     name: Tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -131,7 +131,7 @@ jobs:
           - name: arm64
             runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -181,7 +181,7 @@ jobs:
             echo "deb install smoke test passed."
           '
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deb-${{ matrix.name }}
           path: dist/*
@@ -201,7 +201,7 @@ jobs:
           - name: aarch64
             runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -232,7 +232,7 @@ jobs:
             echo "rpm install smoke test passed."
           '
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rpm-${{ matrix.name }}
           path: dist/*.rpm
@@ -244,7 +244,7 @@ jobs:
     needs: [ version, test ]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -296,7 +296,7 @@ jobs:
           fi
           echo ".SRCINFO is in sync."
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: arch-x86_64
           path: archbuild/*.pkg.tar.zst
@@ -312,7 +312,7 @@ jobs:
       name: launchpad-ppa
       url: https://launchpad.net/~vhrabar/+archive/ubuntu/tools
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
 
@@ -392,7 +392,7 @@ jobs:
       name: aur
       url: https://aur.archlinux.org/packages/secure-eye
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
 
