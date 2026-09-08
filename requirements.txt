@@ -14,7 +14,7 @@ ffmpeg-python==0.2.0
     # via secureeye
 flatbuffers==25.12.19
     # via mediapipe
-fonttools==4.63.0
+fonttools==4.64.0
     # via matplotlib
 future==1.0.0
     # via ffmpeg-python
@@ -24,7 +24,7 @@ keras==3.15.1
     # via secureeye
 keyboard==0.13.5
     # via secureeye
-kiwisolver==1.5.0
+kiwisolver==1.5.1
     # via matplotlib
 markdown-it-py==4.2.0
     # via rich
