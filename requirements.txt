@@ -14,7 +14,7 @@ ffmpeg-python==0.2.0
     # via secureeye
 flatbuffers==25.12.19
     # via mediapipe
-fonttools==4.64.0
+fonttools==4.65.0
     # via matplotlib
 future==1.0.0
     # via ffmpeg-python
@@ -38,7 +38,7 @@ ml-dtypes==0.6.0
     # via keras
 namex==0.1.0
     # via keras
-numpy==2.5.2
+numpy==2.5.3
     # via
     #   contourpy
     #   h5py
