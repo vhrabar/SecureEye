@@ -14,7 +14,7 @@ ffmpeg-python==0.2.0
     # via secureeye
 flatbuffers==25.12.19
     # via mediapipe
-fonttools==4.65.0
+fonttools==4.66.0
     # via matplotlib
 future==1.0.0
     # via ffmpeg-python
@@ -784,7 +784,7 @@ pyobjc-framework-vision==12.2.2 ; platform_release >= '17.0' and sys_platform ==
     # via pyobjc
 pyobjc-framework-webkit==12.2.2 ; sys_platform == 'darwin'
     # via pyobjc
-pyparsing==3.3.2
+pyparsing==3.3.3
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via matplotlib
