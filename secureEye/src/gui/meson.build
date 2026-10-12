@@ -21,6 +21,7 @@ qml_module = qt6.qml_module(
         'qml/Main.qml',
         'qml/pages/Dashboard.qml',
         'qml/pages/Configuration.qml',
+        'qml/controls/ConfigRow.qml',
     ],
     moc_headers : [
         'src/core/ConfigSchema.hpp',
