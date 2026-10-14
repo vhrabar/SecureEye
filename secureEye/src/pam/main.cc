@@ -82,16 +82,18 @@ auto get_remaining_timeout_ms(const std::chrono::steady_clock::time_point& deadl
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
 }
 
-auto wait_socket_event(int sock_fd, std::int16_t events,
-                       const std::chrono::steady_clock::time_point& deadline) -> bool {
+auto wait_socket_event(int sock_fd, std::int16_t events, const std::chrono::steady_clock::time_point& deadline)
+    -> bool {
     while (true) {
         const auto timeout_ms = get_remaining_timeout_ms(deadline);
         if (timeout_ms <= 0) {
             return false;
         }
 
-        struct pollfd pfd {
-            .fd = sock_fd, .events = events, .revents = 0,
+        struct pollfd pfd{
+            .fd = sock_fd,
+            .events = events,
+            .revents = 0,
         };
 
         const auto poll_res = poll(&pfd, 1, timeout_ms);
@@ -122,7 +124,7 @@ auto connect_authd(const std::chrono::steady_clock::time_point& deadline) -> int
         return -1;
     }
 
-    struct sockaddr_un addr {};
+    struct sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
     if (strlen(AUTHD_SOCKET_PATH) >= sizeof(addr.sun_path)) {
         close(sock_fd);
@@ -155,8 +157,8 @@ auto connect_authd(const std::chrono::steady_clock::time_point& deadline) -> int
     return sock_fd;
 }
 
-auto send_all(int sock_fd, const char* data, std::size_t len,
-              const std::chrono::steady_clock::time_point& deadline) -> bool {
+auto send_all(int sock_fd, const char* data, std::size_t len, const std::chrono::steady_clock::time_point& deadline)
+    -> bool {
     std::size_t sent = 0;
     while (sent < len) {
         if (!wait_socket_event(sock_fd, POLLOUT, deadline)) {
@@ -181,8 +183,8 @@ auto send_all(int sock_fd, const char* data, std::size_t len,
     return true;
 }
 
-auto recv_exact(int sock_fd, char* buffer, std::size_t len,
-                const std::chrono::steady_clock::time_point& deadline) -> bool {
+auto recv_exact(int sock_fd, char* buffer, std::size_t len, const std::chrono::steady_clock::time_point& deadline)
+    -> bool {
     std::size_t received = 0;
     while (received < len) {
         if (!wait_socket_event(sock_fd, POLLIN, deadline)) {

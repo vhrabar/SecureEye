@@ -78,8 +78,9 @@ auto GuiBackend::run(const QString& command, const QStringList& args, Privilege 
     process->setArguments(arguments);
     process->setProcessChannelMode(QProcess::SeparateChannels);
 
-    connect(process, &QProcess::finished, this,
-            [this, id](const int exitCode, const QProcess::ExitStatus status) { onProcessFinished(id, exitCode, status); });
+    connect(process, &QProcess::finished, this, [this, id](const int exitCode, const QProcess::ExitStatus status) {
+        onProcessFinished(id, exitCode, status);
+    });
     connect(process, &QProcess::errorOccurred, this,
             [this, id](const QProcess::ProcessError error) { onProcessError(id, error); });
 
