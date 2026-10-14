@@ -24,16 +24,31 @@ auth  sufficient  pam_secureEye.so
 Do NOT edit `/etc/pam.d/system-auth` directly — authselect will
 overwrite it.
 
-## Runtime venv
+## Runtime
 
-`secureeye-authd` builds its recognition virtualenv in
-`/usr/lib/secureeye-authd/venv` from bundled wheels during package
-installation (`%post`), fully offline. It is rebuilt on every upgrade
-and removed on erase.
+Nothing is bundled and there is no virtualenv: `secureeye-authd` runs on the
+system Python interpreter (`/usr/bin/python3`), so there is nothing to rebuild
+after a Python upgrade.
 
 ## Backends
 
-- x86_64 / x86_64 ("+v3" Release suffix): mediapipe backend (vendored wheel).
-- aarch64: dlib backend. Fedora does not package `python3-dlib`, so a
-  dlib wheel built from source is vendored into the package and the
-  shipped `config.ini` defaults to `detector_backend = dlib`.
+The recognition backends are ordinary packages from the
+[`vhrabar/python-extras`](https://copr.fedorainfracloud.org/coprs/vhrabar/python-extras/)
+COPR, selected with `detector_backend` in `/etc/secureEye/config.ini`:
+
+- `python3-mediapipe` — the default backend, **x86_64 only**
+- `python3-dlib` — the alternative backend, and the only one on other
+  architectures
+
+Enable that COPR alongside the SecureEye one, or `dnf` cannot resolve the
+dependencies:
+
+```bash
+sudo dnf copr enable vhrabar/python-extras
+```
+
+On non-x86_64 there is no mediapipe, so switch the backend before first use:
+
+```bash
+sudo secureEye config    # set detector_backend = dlib
+```
