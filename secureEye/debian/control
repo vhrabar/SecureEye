@@ -1,5 +1,5 @@
 Source: secure-eye
-Section: misc
+Section: admin
 Priority: optional
 Maintainer: Vedran Hrabar <vedran.hrabar@outlook.com>
 Homepage: https://github.com/vhrabar/secureEye
@@ -11,42 +11,38 @@ Build-Depends:
  ninja-build,
  pkg-config,
  python3,
- python3-pip,
  libpam0g-dev,
  libevdev-dev,
  libinih-dev
 Vcs-Git: https://github.com/vhrabar/secureEye
 
-Package: libpam-secureeye
-Section: admin
-Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libpam0g
-Description: SecureEye PAM module
- C/C++ PAM module for SecureEye authentication integration.
- This package contains only PAM-facing components.
-
-Package: secureeye-authd
-Section: admin
+Package: secure-eye
 Architecture: any
 Depends:
  ${misc:Depends},
- ${secureeye:Backend},
+ ${shlibs:Depends},
+ libpam0g,
  python3,
- python3-venv,
  python3-numpy,
  python3-opencv,
  python3-matplotlib,
  python3-cffi,
- libportaudio2,
+ python3-dlib,
+ python3-mediapipe [amd64],
  v4l-utils
-Recommends: libpam-secureeye
-Description: SecureEye authentication daemon and Python runtime components
- Helper daemon and Python runtime stack used by SecureEye face authentication.
- Includes systemd service assets and CLI tooling.
-
-Package: secure-eye
-Section: oldlibs
-Architecture: all
-Depends: ${misc:Depends}, libpam-secureeye, secureeye-authd
-Description: Transitional package for SecureEye split packages
- This transitional package depends on the split SecureEye components.
+Recommends: python3-sounddevice
+Suggests: python3-ffmpeg, python3-keyboard
+Provides: libpam-secureeye, secureeye-authd
+Replaces: libpam-secureeye (<< 0.1.2~), secureeye-authd (<< 0.1.2~)
+Breaks: libpam-secureeye (<< 0.1.2~), secureeye-authd (<< 0.1.2~)
+Description: SecureEye face authentication for Linux
+ SecureEye authenticates Linux users with their face. This package ships the
+ complete stack: the C/C++ PAM module, the secureeye-authd authentication
+ daemon it talks to over a UNIX socket, the Python recognition runtime and the
+ secureEye command line tool.
+ .
+ Recognition backends come from the distribution rather than a bundled
+ virtualenv: python3-mediapipe (amd64 only) is the default backend and
+ python3-dlib is the alternative, selectable via detector_backend in
+ /etc/secureEye/config.ini. On architectures without mediapipe, set
+ detector_backend = dlib.

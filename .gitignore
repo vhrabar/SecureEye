@@ -127,6 +127,9 @@ debian/howdy
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 
+# JetBrains IDEs
+.idea/
+
 # Local History for Visual Studio Code
 .history/
 
@@ -138,3 +141,4 @@ subprojects/
 
 # dev sandbox (GUI/camera-test runs against this instead of /etc/secureEye)
 .devroot/
+archbuild/

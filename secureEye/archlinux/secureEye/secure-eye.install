@@ -14,6 +14,13 @@ post_install() {
 
     Configuration lives in /etc/secureEye/config.ini.
 EOF
+	if [ "$(uname -m)" != "x86_64" ]; then
+		cat <<'EOF'
+==> python-mediapipe is x86_64 only. On this architecture set
+      detector_backend = dlib
+    in /etc/secureEye/config.ini before first use.
+EOF
+	fi
 }
 
 post_upgrade() {

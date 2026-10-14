@@ -1,4 +1,0 @@
-# Legacy monolithic manifest intentionally left empty.
-# Split manifests:
-#  - debian/libpam-secureeye.install
-#  - debian/secureeye-authd.install

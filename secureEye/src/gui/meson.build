@@ -8,6 +8,7 @@ gui_inc = include_directories('src', 'src/core')
 moc_files = qt6.preprocess(
     moc_headers : [
         'src/app/Application.hpp',
+        'src/system/GuiBackend.hpp',
     ],
     qresources : ['secureeye-gui.qrc'],
     dependencies : qt6_dep,
@@ -51,6 +52,7 @@ gui_sources = [
     'src/core/ConfigModel.cpp',
     'src/core/ConfigSectionFilter.cpp',
     'src/core/IniDocument.cpp',
+    'src/system/GuiBackend.cpp',
     gui_paths_h,
 ]
 
@@ -64,6 +66,7 @@ executable(
     cpp_args : [
         '-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"',
         '-DSECUREEYE_CONFIG_PATH="' + config_path + '"',
+        '-DSECUREEYE_CLI_PATH="' + join_paths(get_option('prefix'), get_option('bindir'), 'secureEye') + '"',
     ],
     install : true,
     install_dir : get_option('bindir'),
