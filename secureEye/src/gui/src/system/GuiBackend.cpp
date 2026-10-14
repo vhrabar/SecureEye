@@ -58,8 +58,10 @@ auto GuiBackend::run(const QString& command, const QStringList& args, Privilege 
         return id;
     }
 
-    QStringList arguments{QStringLiteral("--plain"), command};
+    // The command must stay first: pkexec matches it against the exec.argv1 annotation to pick the polkit action.
+    QStringList arguments{command};
     arguments += args;
+    arguments += QStringLiteral("--plain");
 
     QString program = cli;
     if (privilege == Privilege::Admin) {

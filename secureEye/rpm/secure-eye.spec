@@ -98,7 +98,8 @@ meson setup %{_vpath_builddir} . \
     -Dinstall_pam_config=false \
     -Dpython_path=%{_bindir}/python3 \
     -Dconfig_dir=%{_sysconfdir}/secureEye \
-    -Duser_models_dir=%{_sysconfdir}/secureEye/models
+    -Duser_models_dir=%{_sysconfdir}/secureEye/models \
+    -Dwith_polkit=true
 meson compile -C %{_vpath_builddir}
 
 %install
@@ -133,6 +134,7 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 %{_unitdir}/secureeye-authd.service
 %{_sysusersdir}/secure-eye.conf
 %{_datadir}/bash-completion/completions/secureEye
+%{_datadir}/polkit-1/actions/com.github.vhrabar.secureeye.policy
 %dir %{_datadir}/secureEye
 %{_datadir}/secureEye/logo.png
 %{_mandir}/man1/SecureEye.1*

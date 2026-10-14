@@ -222,3 +222,19 @@ install_data(
   install_dir: get_option('bindir'),
   install_tag: 'bin',
 )
+
+if get_option('with_polkit')
+    polkit_policy = configure_file(
+        input: 'polkit/com.github.vhrabar.secureeye.policy.in',
+        output: 'com.github.vhrabar.secureeye.policy',
+        configuration: configuration_data({
+            'cli_path': join_paths(get_option('prefix'), get_option('bindir'), bin_name),
+        }),
+    )
+    install_data(
+        polkit_policy,
+        install_mode: 'rw-r--r--',
+        install_dir: join_paths(get_option('prefix'), get_option('datadir'), 'polkit-1', 'actions'),
+        install_tag: 'polkit',
+    )
+endif
