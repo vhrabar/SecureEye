@@ -389,8 +389,8 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
     return kSections;
 }
 
-[[nodiscard]] constexpr auto findOption(const std::string_view section,
-                                        const std::string_view key) -> const ConfigOption* {
+[[nodiscard]] constexpr auto findOption(const std::string_view section, const std::string_view key)
+    -> const ConfigOption* {
     const auto* const match = std::ranges::find_if(
         kOptions, [&](const ConfigOption& option) -> bool { return option.section == section && option.key == key; });
 
