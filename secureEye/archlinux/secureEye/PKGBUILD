@@ -58,13 +58,14 @@ build() {
 		-Dinstall_pam_config=false \
 		-Dpython_path=/usr/bin/python3 \
 		-Dconfig_dir=/etc/secureEye \
-		-Duser_models_dir=/etc/secureEye/models
+		-Duser_models_dir=/etc/secureEye/models \
+		-Dwith_polkit=true
 	meson compile -C build
 }
 
 package() {
 	meson install -C build --destdir "$pkgdir" \
-		--tags pam_module,bin,py_sources,config,systemd,bash_completion,meta,man
+		--tags pam_module,bin,py_sources,config,systemd,bash_completion,polkit,meta,man
 
 	install -dm755 "$pkgdir/etc/secureEye/models"
 	install -Dm644 "$_srcname/secureEye/rpm/secure-eye.sysusers" \

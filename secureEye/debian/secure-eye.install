@@ -3,6 +3,7 @@ usr/lib/*/security/pam_secureEye.so
 usr/lib/*/secureEye
 usr/lib/systemd/system/secureeye-authd.service
 usr/share/bash-completion/completions/secureEye
+usr/share/polkit-1/actions/com.github.vhrabar.secureeye.policy
 usr/share/man/man1/SecureEye.1
 usr/share/secureEye/logo.png
 etc/secureEye/config.ini
