@@ -4,8 +4,10 @@
 #include "ConfigSchema.hpp"
 #include "IniDocument.hpp"
 
+#include <QByteArray>
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QQmlEngine>
 #include <QString>
 #include <QVariant>
@@ -13,6 +15,8 @@
 
 class QQmlEngine;
 class QJSEngine;
+class QFileSystemWatcher;
+class QTimer;
 
 namespace secureEye {
 
@@ -32,6 +36,8 @@ class ConfigStore : public QObject {
     // [{section, key, value, message}] for values in the file that do not fit the schema. They are kept as written,
     // not clamped, so the user can see and fix them.
     Q_PROPERTY(QVariantList problems READ problems NOTIFY problemsChanged)
+    // config.ini changed on disk while there were unsaved edits. Cleared by load() or keepEdits().
+    Q_PROPERTY(bool changedOnDisk READ hasChangedOnDisk NOTIFY changedOnDiskChanged)
 
 public:
     static auto instance() -> ConfigStore*;
@@ -53,6 +59,9 @@ public:
     [[nodiscard]] auto problems() const -> QVariantList {
         return m_problems;
     }
+    [[nodiscard]] auto hasChangedOnDisk() const -> bool {
+        return m_changedOnDisk;
+    }
 
     // Lets save() fall back to the CLI through pkexec when the file is not writable.
     void setBackend(GuiBackend* backend);
@@ -65,6 +74,8 @@ public:
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
     Q_INVOKABLE void revert();
+    // Keeps the unsaved edits after changedOnDisk. The next save applies them on top of the new file.
+    Q_INVOKABLE void keepEdits();
 
 signals:
     void valueChanged(const QString& section, const QString& key);
@@ -72,6 +83,7 @@ signals:
     void writableChanged();
     void savingChanged();
     void problemsChanged();
+    void changedOnDiskChanged();
     void loadFailed(const QString& error);
     void saveFinished(bool ok, const QString& error);
 
@@ -90,6 +102,9 @@ private:
     void writeDirectly();
     void writeThroughCli();
     void finishSave(bool ok, const QString& error);
+    void watch();
+    void onFileChanged();
+    void setChangedOnDisk(bool changed);
 
     QString m_path;
     IniDocument m_document;
@@ -98,6 +113,12 @@ private:
     GuiBackend* m_backend = nullptr;
     int m_saveJob = 0;
     QVariantList m_problems;
+    // What load() last read, to tell real changes from our own saves and from touches.
+    QByteArray m_loadedBytes;
+    bool m_changedOnDisk = false;
+    // Parented to the application rather than to this static singleton, so they are gone before the event loop is.
+    QPointer<QFileSystemWatcher> m_watcher;
+    QPointer<QTimer> m_reloadTimer;
 };
 
 } // namespace secureEye

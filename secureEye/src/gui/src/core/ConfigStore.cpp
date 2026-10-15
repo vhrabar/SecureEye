@@ -2,9 +2,13 @@
 
 #include "system/GuiBackend.hpp"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QSaveFile>
+#include <QTimer>
 
 #include <algorithm>
 #include <utility>
@@ -17,6 +21,14 @@ namespace secureEye {
 namespace {
 
 constexpr auto kPathOverrideEnv = "SECUREEYE_CONFIG";
+
+// Editors and `secureEye set` replace the file in a few steps; wait for them to settle before reading it.
+constexpr int kReloadDelayMs = 200;
+
+[[nodiscard]] auto readBytes(const QString& path) -> QByteArray {
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
 
 [[nodiscard]] auto toView(const QByteArray& bytes) -> std::string_view {
     return {bytes.constData(), static_cast<std::size_t>(bytes.size())};
@@ -45,6 +57,58 @@ constexpr auto kPathOverrideEnv = "SECUREEYE_CONFIG";
 
 ConfigStore::ConfigStore(QObject* parent) : QObject(parent), m_path(configPath()) {
     load();
+    watch();
+}
+
+void ConfigStore::watch() {
+    QCoreApplication* const app = QCoreApplication::instance();
+    if (app == nullptr) {
+        return;
+    }
+
+    m_watcher = new QFileSystemWatcher(app);
+    m_reloadTimer = new QTimer(m_watcher);
+    m_reloadTimer->setSingleShot(true);
+    m_reloadTimer->setInterval(kReloadDelayMs);
+
+    // The directory is watched too: a save that replaces the file (QSaveFile, os.replace) drops the file watch.
+    m_watcher->addPath(QFileInfo(m_path).absolutePath());
+    if (QFileInfo::exists(m_path)) {
+        m_watcher->addPath(m_path);
+    }
+
+    const auto schedule = [this] { m_reloadTimer->start(); };
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, schedule);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, schedule);
+    connect(m_reloadTimer, &QTimer::timeout, this, &ConfigStore::onFileChanged);
+}
+
+void ConfigStore::onFileChanged() {
+    if (m_watcher != nullptr && QFileInfo::exists(m_path) && !m_watcher->files().contains(m_path)) {
+        m_watcher->addPath(m_path);
+    }
+
+    // A running save reloads when it finishes.
+    if (isSaving() || readBytes(m_path) == m_loadedBytes) {
+        return;
+    }
+
+    if (isDirty()) {
+        setChangedOnDisk(true);
+    } else {
+        load();
+    }
+}
+
+void ConfigStore::setChangedOnDisk(const bool changed) {
+    if (m_changedOnDisk != changed) {
+        m_changedOnDisk = changed;
+        emit changedOnDiskChanged();
+    }
+}
+
+void ConfigStore::keepEdits() {
+    setChangedOnDisk(false);
 }
 
 auto ConfigStore::instance() -> ConfigStore* {
@@ -106,6 +170,8 @@ void ConfigStore::load() {
     if (!m_document.load(m_path, &error)) {
         emit loadFailed(error);
     }
+    m_loadedBytes = readBytes(m_path);
+    setChangedOnDisk(false);
 
     m_onDisk.clear();
     m_problems.clear();
@@ -160,6 +226,12 @@ void ConfigStore::save() {
 }
 
 void ConfigStore::writeDirectly() {
+    // Patch what is on disk now, so changes made underneath since the last load are kept.
+    QString error;
+    if (!m_document.load(m_path, &error)) {
+        emit saveFinished(false, error);
+        return;
+    }
     const QString contents = m_document.patched(m_pending);
 
     QSaveFile file(m_path);
