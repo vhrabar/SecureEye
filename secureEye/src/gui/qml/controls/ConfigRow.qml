@@ -6,7 +6,8 @@ import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 import SecureEye.Gui
 
-
+// One option of config.ini as a form row: the editor for its type, an unsaved marker, reset and help.
+// It only reports changes; the page decides what to do with them.
 RowLayout {
     id: row
 
@@ -26,13 +27,12 @@ RowLayout {
     required property var value
     required property int valueType
 
+    signal edited(var value)
+    signal resetRequested
+
     Kirigami.FormData.label: "%1:".arg(row.label)
     enabled: row.applicable
     spacing: Kirigami.Units.smallSpacing
-
-    function commit(newValue: var): void {
-        ConfigStore.set(row.section, row.key, newValue);
-    }
 
     Loader {
         id: editor
@@ -60,7 +60,7 @@ RowLayout {
         Layout.preferredWidth: Kirigami.Units.iconSizes.small
         color: Kirigami.Theme.neutralTextColor
         opacity: row.modified ? 1 : 0
-        source: "emblem-important-symbolic"
+        "emblem-important-symbolic"
 
         Controls.ToolTip.text: "Unsaved change"
         Controls.ToolTip.visible: modifiedHover.hovered
@@ -79,7 +79,7 @@ RowLayout {
         Controls.ToolTip.text: text
         Controls.ToolTip.visible: hovered
 
-        onClicked: ConfigStore.reset(row.section, row.key)
+        onClicked: row.resetRequested()
     }
     Kirigami.ContextualHelpButton {
         toolTipText: row.note ? "%1\n\n(%2)".arg(row.help).arg(row.note) : row.help
@@ -88,77 +88,62 @@ RowLayout {
     Component {
         id: boolEditor
 
-        Controls.Switch {
-            checked: row.value === true
+        ToggleRow {
+            value: row.value === true
 
-            onToggled: row.commit(checked)
+            onEdited: value => row.edited(value)
         }
     }
     Component {
         id: intEditor
 
-        Controls.SpinBox {
-            editable: true
-            from: row.hasRange ? Math.round(row.minimum) : -2147483647
+        SpinRow {
+            row.hasRange ? Math.round(row.minimum) : -2147483647
             to: row.hasRange ? Math.round(row.maximum) : 2147483647
             value: row.value
 
-            onValueModified: row.commit(value)
+            onEdited: value => row.edited(value)
         }
     }
     Component {
         id: floatEditor
 
-        RowLayout {
-            spacing: Kirigami.Units.smallSpacing
+        SliderRow {
+            row.hasRange ? row.minimum : 0
+            to: row.hasRange ? row.maximum : 100
+            value: row.value
 
-            Controls.Slider {
-                id: slider
-
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
-                from: row.hasRange ? row.minimum : 0
-                stepSize: 0.1
-                to: row.hasRange ? row.maximum : 100
-                value: row.value
-
-                onMoved: row.commit(Number(value.toFixed(1)))
-            }
-            Controls.Label {
-                Layout.minimumWidth: Kirigami.Units.gridUnit * 2
-                text: Number(slider.value).toFixed(1)
-            }
+            onEdited: value => row.edited(value)
         }
     }
     Component {
         id: enumEditor
 
-        Controls.ComboBox {
-            implicitWidth: Kirigami.Units.gridUnit * 20
-            currentIndex: row.enumValues.indexOf(row.value)
-            model: row.enumLabels
+        SelectRow {
+            labels: row.enumLabels
+            value: row.value
+            values: row.enumValues
 
-            onActivated: index => row.commit(row.enumValues[index])
+            onEdited: value => row.edited(value)
         }
     }
     Component {
         id: textEditor
 
-        Controls.TextField {
-            implicitWidth: Kirigami.Units.gridUnit * 20
-            text: row.value
+        TextRow {
+            value: row.value
 
-            onEditingFinished: row.commit(text)
+            onEdited: value => row.edited(value)
         }
     }
     Component {
         id: multilineEditor
 
-        Controls.TextArea {
-            implicitWidth: Kirigami.Units.gridUnit * 20
-            text: row.value
-            wrapMode: TextEdit.Wrap
+        TextRow {
+            multiline: true
+            value: row.value
 
-            onEditingFinished: row.commit(text)
+            onEdited: value => row.edited(value)
         }
     }
 }

@@ -155,19 +155,13 @@ Kirigami.Page {
             spacing: Kirigami.Units.largeSpacing
             width: sectionView.availableWidth
 
-            Kirigami.Heading {
-                Layout.leftMargin: Kirigami.Units.largeSpacing
-                Layout.topMargin: Kirigami.Units.largeSpacing
-                level: 1
-                text: sectionView.info.title
-            }
-            Controls.Label {
+            SectionHeading {
                 Layout.fillWidth: true
                 Layout.leftMargin: Kirigami.Units.largeSpacing
                 Layout.rightMargin: Kirigami.Units.largeSpacing
-                opacity: 0.7
-                text: sectionView.info.description
-                wrapMode: Text.WordWrap
+                Layout.topMargin: Kirigami.Units.largeSpacing
+                description: sectionView.info.description
+                title: sectionView.info.title
             }
             Kirigami.FormLayout {
                 Layout.fillWidth: true
@@ -178,7 +172,12 @@ Kirigami.Page {
                         sourceModel: ConfigModel
                     }
 
+                    // The rows only report edits; this page is what applies them to the store.
                     delegate: ConfigRow {
+                        id: configRow
+
+                        onEdited: value => ConfigStore.set(configRow.section, configRow.key, value)
+                        onResetRequested: ConfigStore.reset(configRow.section, configRow.key)
                     }
                 }
             }
