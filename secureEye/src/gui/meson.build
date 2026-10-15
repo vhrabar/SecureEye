@@ -85,3 +85,30 @@ install_data(
     install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'),
     install_tag : 'gui',
 )
+
+qt6_test_dep = dependency('qt6', modules : ['Core', 'Qml', 'Test'], required : false)
+if qt6_test_dep.found()
+    test_configstore_moc = qt6.preprocess(
+        moc_headers : ['src/core/ConfigStore.hpp', 'src/system/GuiBackend.hpp'],
+        moc_sources : ['tests/test_configstore.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_configstore = executable(
+        'test_configstore',
+        'tests/test_configstore.cpp',
+        'src/core/ConfigStore.cpp',
+        'src/core/IniDocument.cpp',
+        'src/system/GuiBackend.cpp',
+        test_configstore_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        cpp_args : [
+            '-DSHIPPED_CONFIG_PATH="' + join_paths(meson.current_source_dir(), '..', 'config.ini') + '"',
+            '-DSECUREEYE_CONFIG_PATH="' + config_path + '"',
+            '-DSECUREEYE_CLI_PATH="' + join_paths(get_option('prefix'), get_option('bindir'), 'secureEye') + '"',
+        ],
+        install : false,
+    )
+    test('configstore', test_configstore, env : ['QT_QPA_PLATFORM=offscreen'])
+endif

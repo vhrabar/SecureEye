@@ -9,6 +9,7 @@
 #include <QQmlEngine>
 #include <QString>
 #include <QVariant>
+#include <QVariantList>
 
 class QQmlEngine;
 class QJSEngine;
@@ -28,6 +29,9 @@ class ConfigStore : public QObject {
     Q_PROPERTY(bool writable READ isWritable NOTIFY writableChanged)
     Q_PROPERTY(bool canSave READ canSave NOTIFY writableChanged)
     Q_PROPERTY(bool saving READ isSaving NOTIFY savingChanged)
+    // [{section, key, value, message}] for values in the file that do not fit the schema. They are kept as written,
+    // not clamped, so the user can see and fix them.
+    Q_PROPERTY(QVariantList problems READ problems NOTIFY problemsChanged)
 
 public:
     static auto instance() -> ConfigStore*;
@@ -45,6 +49,9 @@ public:
     [[nodiscard]] auto canSave() const -> bool;
     [[nodiscard]] auto isSaving() const -> bool {
         return m_saveJob != 0;
+    }
+    [[nodiscard]] auto problems() const -> QVariantList {
+        return m_problems;
     }
 
     // Lets save() fall back to the CLI through pkexec when the file is not writable.
@@ -64,6 +71,7 @@ signals:
     void dirtyChanged();
     void writableChanged();
     void savingChanged();
+    void problemsChanged();
     void loadFailed(const QString& error);
     void saveFinished(bool ok, const QString& error);
 
@@ -77,6 +85,8 @@ private:
     [[nodiscard]] static auto deserialize(const config::ConfigOption& option, const QString& raw) -> QVariant;
     [[nodiscard]] auto rawValue(const config::ConfigOption& option) const -> QString;
     [[nodiscard]] auto isInstalledConfig() const -> bool;
+    // Why raw does not fit option, or an empty string when it does.
+    [[nodiscard]] static auto validate(const config::ConfigOption& option, const QString& raw) -> QString;
     void writeDirectly();
     void writeThroughCli();
     void finishSave(bool ok, const QString& error);
@@ -87,6 +97,7 @@ private:
     IniDocument::ValueMap m_pending;
     GuiBackend* m_backend = nullptr;
     int m_saveJob = 0;
+    QVariantList m_problems;
 };
 
 } // namespace secureEye
