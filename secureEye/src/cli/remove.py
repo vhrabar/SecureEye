@@ -7,24 +7,29 @@ import json
 import builtins
 import paths_factory
 
+from cli.output import fail, ok
 from i18n import _
 
 user = builtins.secureEye_user
 
 # Check if enough arguments have been passed
 if not builtins.secureEye_args.arguments:
-    print(_("Please add the ID of the model you want to remove as an argument"))
-    print(_("For example:"))
-    print("\n\tsecureEye remove 0\n")
-    print(_("You can find the IDs by running:"))
-    print("\n\tsecureEye list\n")
-    sys.exit(1)
+    fail(
+        "missing_argument",
+        _("Please add the ID of the model you want to remove as an argument"),
+        _("For example:"),
+        "\n\tsecureEye remove 0\n",
+        _("You can find the IDs by running:"),
+        "\n\tsecureEye list\n",
+    )
 
 # Check if the models file has been created yet
 if not os.path.exists(paths_factory.user_models_dir_path()):
-    print(_("Face models have not been initialized yet, please run:"))
-    print("\n\tsecureEye add\n")
-    sys.exit(1)
+    fail(
+        "models_not_initialized",
+        _("Face models have not been initialized yet, please run:"),
+        "\n\tsecureEye add\n",
+    )
 
 # Path to the models file
 enc_file = paths_factory.user_model_path(user)
@@ -33,9 +38,16 @@ enc_file = paths_factory.user_model_path(user)
 try:
     encodings = json.load(open(enc_file))
 except FileNotFoundError:
-    print(_("No face model known for the user {}, please run:").format(user))
-    print("\n\tsecureEye add\n")
-    sys.exit(1)
+    fail(
+        "no_models",
+        _("No face model known for the user {}, please run:").format(user),
+        "\n\tsecureEye add\n",
+    )
+except json.JSONDecodeError as err:
+    fail(
+        "model_file_invalid",
+        _("The face model file {file} is not valid JSON: {error}").format(file=enc_file, error=err),
+    )
 
 # Tracks if a encoding with that id has been found
 found = False
@@ -66,17 +78,20 @@ for enc in encodings:
 
         # Mark as found and print an enter
         found = True
+        removed_id = enc["id"]
         break
 
 # Abort if no matching id was found
 if not found:
-    print(_("No model with ID {id} exists for {user}").format(id=id, user=user))
-    sys.exit(1)
+    fail("model_not_found", _("No model with ID {id} exists for {user}").format(id=id, user=user))
 
 # Remove the entire file if this encoding is the only one
 if len(encodings) == 1:
     os.remove(paths_factory.user_model_path(user))
-    print(_("Removed last model, secureEye disabled for user"))
+    ok(
+        {"removed": removed_id, "remaining": 0},
+        _("Removed last model, secureEye disabled for user"),
+    )
 else:
     # A place holder to contain the encodings that will remain
     new_encodings = []
@@ -90,4 +105,4 @@ else:
     with open(enc_file, "w") as datafile:
         json.dump(new_encodings, datafile)
 
-    print(_("Removed model {}").format(id))
+    ok({"removed": removed_id, "remaining": len(new_encodings)}, _("Removed model {}").format(id))

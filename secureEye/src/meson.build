@@ -35,6 +35,7 @@ py_sources = [
     'cli/config.py',
     'cli/disable.py',
     'cli/list.py',
+    'cli/output.py',
     'cli/remove.py',
     'cli/set.py',
     'cli/snap.py',
