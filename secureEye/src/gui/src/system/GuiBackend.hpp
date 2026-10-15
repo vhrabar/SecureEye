@@ -1,8 +1,8 @@
 #ifndef SECUREEYE_GUIBACKEND_HPP
 #define SECUREEYE_GUIBACKEND_HPP
 
-#include <QByteArray>
 #include <QHash>
+#include <QJsonValue>
 #include <QObject>
 #include <QProcess>
 #include <QString>
@@ -29,13 +29,15 @@ public:
         Crashed,       // the process died from a signal
         AuthDismissed, // the user closed the polkit dialog (pkexec exit 126)
         NotAuthorized, // polkit refused the action (pkexec exit 127)
-        CommandFailed, // the CLI ran and exited non-zero
+        CommandFailed, // the CLI reported an error; code holds its error code
+        InvalidOutput, // the CLI did not print the expected JSON object
     };
     Q_ENUM(Error)
 
     explicit GuiBackend(QObject* parent = nullptr);
     ~GuiBackend() override;
 
+    // Runs `secureEye <command> <args...> --json` and reports the object it prints.
     auto run(const QString& command, const QStringList& args = {}, Privilege privilege = Privilege::User) -> int;
 
     void cancel(int id);
@@ -46,8 +48,10 @@ public:
     [[nodiscard]] static auto cliPath() -> QString;
 
 signals:
-    void finished(int id, const QByteArray& output);
-    void failed(int id, secureEye::GuiBackend::Error error, const QString& message);
+    // data is the CLI's "data" member.
+    void finished(int id, const QJsonValue& data);
+    // code is the CLI's error code (see secureEye/src/cli/output.py) for CommandFailed, empty otherwise.
+    void failed(int id, secureEye::GuiBackend::Error error, const QString& code, const QString& message);
     void cancelled(int id);
     void busyChanged();
 

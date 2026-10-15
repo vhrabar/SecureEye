@@ -1,6 +1,8 @@
 #include "GuiBackend.hpp"
 
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -16,10 +18,11 @@ constexpr int kPkexecNotAuthorized = 127;
 
 constexpr int kTerminateGraceMs = 2000;
 
-auto commandOutputMessage(QProcess* process, const int exitCode) -> QString {
+// Used when the CLI did not get as far as printing JSON
+auto rawOutputMessage(QProcess* process, const QByteArray& stdOut, const int exitCode) -> QString {
     QString message = QString::fromUtf8(process->readAllStandardError()).trimmed();
     if (message.isEmpty()) {
-        message = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+        message = QString::fromUtf8(stdOut).trimmed();
     }
     if (message.isEmpty()) {
         message = GuiBackend::tr("secureEye exited with code %1.").arg(exitCode);
@@ -49,7 +52,7 @@ auto GuiBackend::run(const QString& command, const QStringList& args, Privilege 
 
     const auto failLater = [this, id](Error error, const QString& message) {
         // Emitted from the event loop so the caller has the id before any signal for it arrives.
-        QTimer::singleShot(0, this, [this, id, error, message] { emit failed(id, error, message); });
+        QTimer::singleShot(0, this, [this, id, error, message] { emit failed(id, error, {}, message); });
     };
 
     const QString cli = cliPath();
@@ -61,7 +64,7 @@ auto GuiBackend::run(const QString& command, const QStringList& args, Privilege 
     // The command must stay first: pkexec matches it against the exec.argv1 annotation to pick the polkit action.
     QStringList arguments{command};
     arguments += args;
-    arguments += QStringLiteral("--plain");
+    arguments += QStringLiteral("--json");
 
     QString program = cli;
     if (privilege == Privilege::Admin) {
@@ -79,6 +82,8 @@ auto GuiBackend::run(const QString& command, const QStringList& args, Privilege 
     process->setProgram(program);
     process->setArguments(arguments);
     process->setProcessChannelMode(QProcess::SeparateChannels);
+    // --json already implies -y
+    process->setStandardInputFile(QProcess::nullDevice());
 
     connect(process, &QProcess::finished, this, [this, id](const int exitCode, const QProcess::ExitStatus status) {
         onProcessFinished(id, exitCode, status);
@@ -129,25 +134,38 @@ void GuiBackend::onProcessFinished(const int id, const int exitCode, const QProc
     process->deleteLater();
 
     if (status == QProcess::CrashExit) {
-        emit failed(id, Error::Crashed, tr("secureEye stopped unexpectedly."));
+        emit failed(id, Error::Crashed, {}, tr("secureEye stopped unexpectedly."));
         return;
     }
 
     if (privilege == Privilege::Admin && exitCode == kPkexecDismissed) {
-        emit failed(id, Error::AuthDismissed, tr("Authentication was cancelled."));
+        emit failed(id, Error::AuthDismissed, {}, tr("Authentication was cancelled."));
         return;
     }
     if (privilege == Privilege::Admin && exitCode == kPkexecNotAuthorized) {
-        emit failed(id, Error::NotAuthorized, tr("You are not authorized to perform this action."));
+        emit failed(id, Error::NotAuthorized, {}, tr("You are not authorized to perform this action."));
         return;
     }
 
-    if (exitCode != 0) {
-        emit failed(id, Error::CommandFailed, commandOutputMessage(process, exitCode));
+    const QByteArray output = process->readAllStandardOutput();
+    const QJsonObject reply = QJsonDocument::fromJson(output).object();
+    if (!reply.contains(QLatin1String("ok"))) {
+        if (exitCode != 0) {
+            emit failed(id, Error::CommandFailed, {}, rawOutputMessage(process, output, exitCode));
+        } else {
+            emit failed(id, Error::InvalidOutput, {}, tr("secureEye returned output the GUI does not understand."));
+        }
         return;
     }
 
-    emit finished(id, process->readAllStandardOutput());
+    if (!reply.value(QLatin1String("ok")).toBool()) {
+        const QJsonObject error = reply.value(QLatin1String("error")).toObject();
+        emit failed(id, Error::CommandFailed, error.value(QLatin1String("code")).toString(),
+                    error.value(QLatin1String("message")).toString().trimmed());
+        return;
+    }
+
+    emit finished(id, reply.value(QLatin1String("data")));
 }
 
 void GuiBackend::onProcessError(const int id, const QProcess::ProcessError error) {
@@ -163,7 +181,7 @@ void GuiBackend::onProcessError(const int id, const QProcess::ProcessError error
     }
     process->deleteLater();
 
-    emit failed(id, Error::NotStarted, process->errorString());
+    emit failed(id, Error::NotStarted, {}, process->errorString());
 }
 
 } // namespace secureEye

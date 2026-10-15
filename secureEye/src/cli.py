@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     add_help=False,
     prog="secureEye",
-    usage="secureEye [-U USER] [--plain] [-h] [-y] {command} [{arguments}...]".format(
+    usage="secureEye [-U USER] [--plain] [--json] [-h] [-y] {command} [{arguments}...]".format(
         command=_("command"), arguments=_("arguments")
     ),
     epilog=_("For support please visit\nhttps://github.com/vhrabar/secureEye"),
@@ -76,6 +76,13 @@ parser.add_argument("-y", help=_("Skip all questions."), action="store_true")
 # Add the --plain flag
 parser.add_argument("--plain", help=_("Print machine-friendly output."), action="store_true")
 
+# Add the --json flag, used by the GUI
+parser.add_argument(
+    "--json",
+    help=_("Print a single JSON object and never ask questions (implies -y)."),
+    action="store_true",
+)
+
 # Overwrite the default help message so we can use a uppercase S
 parser.add_argument(
     "-h",
@@ -94,21 +101,42 @@ if len(sys.argv) < 2:
 # Parse all arguments above
 args = parser.parse_args()
 
+# Nobody can answer a prompt in JSON mode
+if args.json:
+    args.y = True
+
 # Save the args and user as builtins which can be accessed by the imports
 builtins.secureEye_args = args
 builtins.secureEye_user = args.user
 
+# Imported after the builtins are set, since it reads them
+from cli.output import fail, ok  # noqa: E402
+
+# Commands whose output follows cli/output.py. The rest still print free text or need a terminal.
+json_commands = {"clear", "disable", "list", "remove", "set", "version"}
+if args.json and args.command not in json_commands:
+    fail("json_unsupported", _("The {} command does not support --json").format(args.command))
+
+# The version is harmless, so it needs no root
+if args.command == "version":
+    ok({"version": "0.0.1"}, "SecureEye 0.0.1")
+    sys.exit(0)
+
 # Check if we have rootish rights
 # This is this far down the file so running the command for help is always possible
 if os.geteuid() != 0:
-    print(_("Please run this command as root:\n"))
-    print("\tsudo secureEye " + " ".join(sys.argv[1:]))
-    sys.exit(1)
+    fail(
+        "not_root",
+        _("Please run this command as root:\n"),
+        "\tsudo secureEye " + " ".join(sys.argv[1:]),
+    )
 
 # Beyond this point the user can't change anymore, if we still have root as user we need to abort
 if args.user == "root":
-    print(_("Can't run secureEye commands as root, please run this command with the --user flag"))
-    sys.exit(1)
+    fail(
+        "root_user",
+        _("Can't run secureEye commands as root, please run this command with the --user flag"),
+    )
 
 # Execute the selected command module.
 command_modules = {
@@ -123,13 +151,15 @@ command_modules = {
     "test": "cli.test",
 }
 
-if args.command == "version":
-    print("SecureEye 0.0.1")
-    sys.exit(0)
-
 module_name = command_modules.get(args.command)
 if module_name is None:
-    print(_("Unknown command"))
-    sys.exit(1)
+    fail("unknown_command", _("Unknown command"))
 
-importlib.import_module(module_name)
+if not args.json:
+    importlib.import_module(module_name)
+else:
+    # A traceback is not JSON; report crashes as an error object instead.
+    try:
+        importlib.import_module(module_name)
+    except Exception as err:  # noqa: BLE001
+        fail("internal_error", "{}: {}".format(type(err).__name__, err))

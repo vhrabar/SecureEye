@@ -166,3 +166,131 @@ def test_snap_generates_snapshot(cli_env, monkeypatch, capsys):
     assert "generated snapshot saved as" in out.lower()
     assert "/tmp/snap.jpg" in out
     assert len(calls["frames"]) == 4
+
+
+def _json_reply(capsys):
+    out = capsys.readouterr().out
+    lines = out.strip().splitlines()
+    assert len(lines) == 1, out
+    return json.loads(lines[0])
+
+
+def test_list_json_reports_models(cli_env, capsys):
+    payload = [{"id": 0, "time": 1700000000, "label": "first", "data": [[0.1], [0.2]]}]
+    cli_env.model_path.write_text(json.dumps(payload), encoding="utf-8")
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit) as exit_info:
+        _run_cli_module("cli.list")
+
+    assert exit_info.value.code == 0
+    assert _json_reply(capsys) == {
+        "ok": True,
+        "data": {
+            "user": "alice",
+            "models": [{"id": 0, "label": "first", "time": 1700000000, "encodings": 2}],
+        },
+    }
+
+
+def test_list_json_without_models_is_empty(cli_env, capsys):
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit) as exit_info:
+        _run_cli_module("cli.list")
+
+    assert exit_info.value.code == 0
+    assert _json_reply(capsys) == {"ok": True, "data": {"user": "alice", "models": []}}
+
+
+def test_list_json_reports_corrupt_model_file(cli_env, capsys):
+    cli_env.model_path.write_text("{not json", encoding="utf-8")
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit):
+        _run_cli_module("cli.list")
+
+    reply = _json_reply(capsys)
+    assert reply["ok"] is False
+    assert reply["error"]["code"] == "model_file_invalid"
+    assert str(cli_env.model_path) in reply["error"]["message"]
+
+
+def test_remove_json_unknown_id(cli_env, capsys):
+    cli_env.model_path.write_text(
+        json.dumps([{"id": 0, "time": 0, "label": "a", "data": []}]), encoding="utf-8"
+    )
+    cli_env.args.arguments = ["7"]
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit):
+        _run_cli_module("cli.remove")
+
+    assert _json_reply(capsys)["error"]["code"] == "model_not_found"
+
+
+def test_remove_json_reports_removed_model(cli_env, capsys):
+    payload = [
+        {"id": 0, "time": 0, "label": "a", "data": []},
+        {"id": 1, "time": 0, "label": "b", "data": []},
+    ]
+    cli_env.model_path.write_text(json.dumps(payload), encoding="utf-8")
+    cli_env.args.arguments = ["1"]
+    cli_env.args.json = True
+
+    _run_cli_module("cli.remove")
+
+    assert _json_reply(capsys) == {"ok": True, "data": {"removed": 1, "remaining": 1}}
+
+
+def test_clear_json_without_models_is_noop(cli_env, capsys):
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit) as exit_info:
+        _run_cli_module("cli.clear")
+
+    assert exit_info.value.code == 0
+    assert _json_reply(capsys) == {"ok": True, "data": {"cleared": False}}
+
+
+def test_disable_json_already_set_is_noop(cli_env, capsys):
+    cli_env.args.arguments = ["0"]
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit) as exit_info:
+        _run_cli_module("cli.disable")
+
+    assert exit_info.value.code == 0
+    assert _json_reply(capsys) == {"ok": True, "data": {"disabled": False, "changed": False}}
+
+
+def test_set_json_rejects_unknown_option(cli_env, capsys):
+    cli_env.args.arguments = ["nope", "1"]
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit):
+        _run_cli_module("cli.set")
+
+    assert _json_reply(capsys)["error"]["code"] == "unknown_option"
+
+
+def test_set_rejects_line_breaks(cli_env, capsys):
+    cli_env.args.arguments = ["certainty", "4\n[core]\ndisabled = true"]
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit):
+        _run_cli_module("cli.set")
+
+    assert _json_reply(capsys)["error"]["code"] == "invalid_value"
+    assert (
+        "disabled = true" not in cli_env.config_path.read_text(encoding="utf-8").split("[core]")[0]
+    )
+
+
+def test_set_json_reports_new_value(cli_env, capsys):
+    cli_env.args.arguments = ["certainty", "4.2"]
+    cli_env.args.json = True
+
+    _run_cli_module("cli.set")
+
+    assert _json_reply(capsys) == {"ok": True, "data": {"key": "certainty", "value": "4.2"}}
