@@ -82,6 +82,37 @@ Kirigami.Page {
             type: ConfigStore.canSave ? Kirigami.MessageType.Information : Kirigami.MessageType.Warning
             visible: !ConfigStore.writable
         }
+        Kirigami.InlineMessage {
+            Layout.fillWidth: true
+            position: Kirigami.InlineMessage.Position.Header
+            text: "%1 was changed outside SecureEye Manager while you had unsaved changes.".arg(ConfigStore.path)
+            type: Kirigami.MessageType.Warning
+            visible: ConfigStore.changedOnDisk
+
+            actions: [
+                Kirigami.Action {
+                    icon.name: "view-refresh"
+                    text: "Reload and discard my changes"
+
+                    onTriggered: ConfigStore.load()
+                },
+                Kirigami.Action {
+                    icon.name: "document-edit"
+                    text: "Keep my changes"
+
+                    onTriggered: ConfigStore.keepEdits()
+                }
+            ]
+        }
+        Kirigami.InlineMessage {
+            Layout.fillWidth: true
+            position: Kirigami.InlineMessage.Position.Header
+            // Values that do not fit the schema are shown as written; saving a corrected value clears the message.
+            text: "Some values in the configuration file are not valid:\n"
+                + ConfigStore.problems.map(problem => "• %1 → %2: %3".arg(problem.section).arg(problem.key).arg(problem.message)).join("\n")
+            type: Kirigami.MessageType.Error
+            visible: ConfigStore.problems.length > 0
+        }
         Controls.SwipeView {
             id: swipeView
 

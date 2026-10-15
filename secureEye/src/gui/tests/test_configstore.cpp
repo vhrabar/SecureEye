@@ -3,6 +3,7 @@
 #include "core/IniDocument.hpp"
 
 #include <QFile>
+#include <QSaveFile>
 #include <QSet>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -28,6 +29,14 @@ auto readAll(const QString& path) -> QByteArray {
         return {};
     }
     return file.readAll();
+}
+
+// How editors and `secureEye set` write: a new file renamed over the old one.
+void replaceFile(const QString& path, const QByteArray& contents) {
+    QSaveFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(contents);
+    QVERIFY(file.commit());
 }
 
 void writeAll(const QString& path, const QByteArray& contents) {
@@ -63,6 +72,10 @@ private slots:
     void shippedConfigHasNoProblems();
     void outOfRangeValueIsReportedNotClamped();
     void malformedValuesAreReported();
+    void externalChangeReloadsWhenClean();
+    void externalChangeWithUnsavedEditsAsksFirst();
+    void keptEditsSaveOnTopOfExternalChange();
+    void ownSaveIsNotAnExternalChange();
 
 private:
     QTemporaryDir m_dir;
@@ -218,6 +231,69 @@ void TestConfigStore::malformedValuesAreReported() {
     const QStringList keys = problemKeys(m_store);
     QVERIFY2(keys.contains(QStringLiteral("video/timeout")), qPrintable(keys.join(QStringLiteral(", "))));
     QVERIFY2(keys.contains(QStringLiteral("core/detection_notice")), qPrintable(keys.join(QStringLiteral(", "))));
+}
+
+void TestConfigStore::externalChangeReloadsWhenClean() {
+    QByteArray edited = m_shipped;
+    edited.replace("timeout = 4", "timeout = 7");
+    replaceFile(m_path, edited);
+
+    QTRY_COMPARE(m_store->value(QStringLiteral("video"), QStringLiteral("timeout")).toInt(), 7);
+    QVERIFY(!m_store->hasChangedOnDisk());
+
+    // The file watch survives the rename, so a second change is seen too.
+    edited.replace("timeout = 7", "timeout = 9");
+    replaceFile(m_path, edited);
+    QTRY_COMPARE(m_store->value(QStringLiteral("video"), QStringLiteral("timeout")).toInt(), 9);
+}
+
+void TestConfigStore::externalChangeWithUnsavedEditsAsksFirst() {
+    m_store->set(QStringLiteral("video"), QStringLiteral("certainty"), 4.25);
+
+    QByteArray edited = m_shipped;
+    edited.replace("timeout = 4", "timeout = 7");
+    replaceFile(m_path, edited);
+
+    QTRY_VERIFY(m_store->hasChangedOnDisk());
+    QVERIFY(m_store->isDirty());
+    QCOMPARE(m_store->value(QStringLiteral("video"), QStringLiteral("certainty")).toDouble(), 4.25);
+    QCOMPARE(m_store->value(QStringLiteral("video"), QStringLiteral("timeout")).toInt(), 4);
+
+    // Reloading takes the new file and drops the edits.
+    m_store->load();
+    QVERIFY(!m_store->hasChangedOnDisk());
+    QVERIFY(!m_store->isDirty());
+    QCOMPARE(m_store->value(QStringLiteral("video"), QStringLiteral("timeout")).toInt(), 7);
+}
+
+void TestConfigStore::keptEditsSaveOnTopOfExternalChange() {
+    m_store->set(QStringLiteral("video"), QStringLiteral("certainty"), 4.25);
+
+    QByteArray edited = m_shipped;
+    edited.replace("timeout = 4", "timeout = 7");
+    replaceFile(m_path, edited);
+    QTRY_VERIFY(m_store->hasChangedOnDisk());
+
+    m_store->keepEdits();
+    QVERIFY(!m_store->hasChangedOnDisk());
+    m_store->save();
+
+    const QByteArray saved = readAll(m_path);
+    QVERIFY(saved.contains("certainty = 4.25"));
+    QVERIFY2(saved.contains("timeout = 7"), "saving the kept edits undid the change made on disk");
+}
+
+void TestConfigStore::ownSaveIsNotAnExternalChange() {
+    m_store->set(QStringLiteral("video"), QStringLiteral("certainty"), 4.25);
+    m_store->set(QStringLiteral("video"), QStringLiteral("timeout"), 5);
+    m_store->save();
+    QVERIFY(!m_store->isDirty());
+
+    // Give the watcher time to report the save, then make sure it was recognised as ours.
+    m_store->set(QStringLiteral("video"), QStringLiteral("timeout"), 6);
+    QTest::qWait(500);
+    QVERIFY(!m_store->hasChangedOnDisk());
+    QVERIFY(m_store->isDirty());
 }
 
 QTEST_GUILESS_MAIN(TestConfigStore)
