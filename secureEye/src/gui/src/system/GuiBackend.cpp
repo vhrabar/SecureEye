@@ -62,9 +62,9 @@ auto GuiBackend::run(const QString& command, const QStringList& args, Privilege 
     }
 
     // The command must stay first: pkexec matches it against the exec.argv1 annotation to pick the polkit action.
-    QStringList arguments{command};
+    // "--" ends the options, so values such as "-1" reach the command as arguments.
+    QStringList arguments{command, QStringLiteral("--json"), QStringLiteral("--")};
     arguments += args;
-    arguments += QStringLiteral("--json");
 
     QString program = cli;
     if (privilege == Privilege::Admin) {

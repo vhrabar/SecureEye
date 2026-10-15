@@ -62,8 +62,6 @@ public:
     };
     Q_ENUM(Role)
 
-    explicit ConfigModel(QObject* parent = nullptr);
-
     static auto create(QQmlEngine* engine, QJSEngine* scriptEngine) -> ConfigModel*;
 
     [[nodiscard]] auto rowCount(const QModelIndex& parent = {}) const -> int override;
@@ -76,6 +74,10 @@ public:
     [[nodiscard]] Q_INVOKABLE QVariantMap sectionInfo(const QString& name) const;
 
 private:
+    // Private so QML has to use create(): with a public default constructor, QML_SINGLETON builds its own instance
+    // and ignores create(), leaving QML and C++ with different objects.
+    explicit ConfigModel(QObject* parent = nullptr);
+
     void onValueChanged(const QString& section, const QString& key);
 
     ConfigStore* m_store;

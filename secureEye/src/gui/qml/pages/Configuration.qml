@@ -23,14 +23,14 @@ Kirigami.Page {
 
     actions: [
         Kirigami.Action {
-            enabled: ConfigStore.dirty
+            enabled: ConfigStore.dirty && !ConfigStore.saving
             icon.name: "document-revert"
             text: "Discard"
 
             onTriggered: ConfigStore.revert()
         },
         Kirigami.Action {
-            enabled: ConfigStore.dirty
+            enabled: ConfigStore.dirty && ConfigStore.canSave && !ConfigStore.saving
             icon.name: "document-save"
             text: "Save"
 
@@ -76,8 +76,10 @@ Kirigami.Page {
         Kirigami.InlineMessage {
             Layout.fillWidth: true
             position: Kirigami.InlineMessage.Position.Header
-            text: "%1 is read only for this user, so changes cannot be saved yet.".arg(ConfigStore.path)
-            type: Kirigami.MessageType.Information
+            text: ConfigStore.canSave
+                ? "Saving %1 asks for administrator privileges.".arg(ConfigStore.path)
+                : "%1 is read only for this user and is not the installed configuration, so changes cannot be saved.".arg(ConfigStore.path)
+            type: ConfigStore.canSave ? Kirigami.MessageType.Information : Kirigami.MessageType.Warning
             visible: !ConfigStore.writable
         }
         Controls.SwipeView {

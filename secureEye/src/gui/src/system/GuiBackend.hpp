@@ -37,7 +37,7 @@ public:
     explicit GuiBackend(QObject* parent = nullptr);
     ~GuiBackend() override;
 
-    // Runs `secureEye <command> <args...> --json` and reports the object it prints.
+    // Runs `secureEye <command> --json -- <args...>` and reports the object it prints.
     auto run(const QString& command, const QStringList& args = {}, Privilege privilege = Privilege::User) -> int;
 
     void cancel(int id);

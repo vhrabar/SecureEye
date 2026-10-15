@@ -293,4 +293,40 @@ def test_set_json_reports_new_value(cli_env, capsys):
 
     _run_cli_module("cli.set")
 
-    assert _json_reply(capsys) == {"ok": True, "data": {"key": "certainty", "value": "4.2"}}
+    assert _json_reply(capsys) == {"ok": True, "data": {"updated": {"certainty": "4.2"}}}
+
+
+def test_set_updates_several_values_at_once(cli_env, capsys):
+    cli_env.args.arguments = ["certainty", "4.2", "exposure", "-1", "dark_threshold", "50"]
+    cli_env.args.json = True
+
+    _run_cli_module("cli.set")
+
+    updated = cli_env.config_path.read_text(encoding="utf-8")
+    assert "certainty = 4.2" in updated
+    assert "dark_threshold = 50" in updated
+    assert "exposure = -1" in updated
+    assert "[video]" in updated
+    assert _json_reply(capsys)["data"]["updated"]["dark_threshold"] == "50"
+
+
+def test_set_writes_nothing_when_one_key_is_unknown(cli_env, capsys):
+    before = cli_env.config_path.read_text(encoding="utf-8")
+    cli_env.args.arguments = ["certainty", "4.2", "nope", "1"]
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit):
+        _run_cli_module("cli.set")
+
+    assert _json_reply(capsys)["error"]["code"] == "unknown_option"
+    assert cli_env.config_path.read_text(encoding="utf-8") == before
+
+
+def test_set_rejects_odd_argument_count(cli_env, capsys):
+    cli_env.args.arguments = ["certainty", "4.2", "exposure"]
+    cli_env.args.json = True
+
+    with pytest.raises(SystemExit):
+        _run_cli_module("cli.set")
+
+    assert _json_reply(capsys)["error"]["code"] == "missing_argument"

@@ -28,7 +28,9 @@ Application::Application(int& argc, char** argv) : QGuiApplication(argc, argv) {
     }
 }
 
-Application::~Application() = default;
+Application::~Application() {
+    secureEye::ConfigStore::instance()->setBackend(nullptr);
+}
 
 auto Application::bootstrap() -> bool {
     createServices();
@@ -39,6 +41,8 @@ auto Application::bootstrap() -> bool {
 }
 
 void Application::createServices() {
+    secureEye::ConfigStore::instance()->setBackend(&m_backend);
+
     // Built eagerly so that a config.ini that cannot be read reports itself
     // before any QML binding asks for a value.
     connect(secureEye::ConfigStore::instance(), &secureEye::ConfigStore::loadFailed, this,
