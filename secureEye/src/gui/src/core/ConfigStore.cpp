@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 
+#include <algorithm>
 #include <utility>
 
 #ifndef SECUREEYE_CONFIG_PATH
@@ -107,17 +108,29 @@ void ConfigStore::load() {
     }
 
     m_onDisk.clear();
+    m_problems.clear();
     for (const config::ConfigOption& option : config::options()) {
         const QString section = toQString(option.section);
         const QString key = toQString(option.key);
         const QString mapKey = IniDocument::mapKey(section, key);
 
         const auto found = m_document.values().constFind(mapKey);
-        const QString raw = found == m_document.values().constEnd() ? toQString(option.defaultValue) : *found;
+        const bool inFile = found != m_document.values().constEnd();
+        const QString raw = inFile ? *found : toQString(option.defaultValue);
         m_onDisk.insert(mapKey, canonical(option, raw));
+
+        if (const QString problem = inFile ? validate(option, raw) : QString(); !problem.isEmpty()) {
+            m_problems.append(QVariantMap{
+                {QStringLiteral("section"), section},
+                {QStringLiteral("key"), key},
+                {QStringLiteral("value"), raw},
+                {QStringLiteral("message"), problem},
+            });
+        }
 
         emit valueChanged(section, key);
     }
+    emit problemsChanged();
 
     if (wasDirty) {
         emit dirtyChanged();
@@ -255,6 +268,47 @@ auto ConfigStore::rawValue(const config::ConfigOption& option) const -> QString 
     const auto pending = m_pending.constFind(mapKey);
 
     return pending == m_pending.constEnd() ? m_onDisk.value(mapKey) : *pending;
+}
+
+auto ConfigStore::validate(const config::ConfigOption& option, const QString& raw) -> QString {
+    double number = 0.0;
+    bool ok = true;
+
+    switch (option.type) {
+    case config::ValueType::Bool: {
+        static const QStringList accepted = {QStringLiteral("1"),     QStringLiteral("yes"), QStringLiteral("true"),
+                                             QStringLiteral("on"),    QStringLiteral("0"),   QStringLiteral("no"),
+                                             QStringLiteral("false"), QStringLiteral("off")};
+        return accepted.contains(raw.toLower()) ? QString() : tr("\"%1\" is not true or false.").arg(raw);
+    }
+    case config::ValueType::Int:
+        number = raw.toInt(&ok);
+        if (!ok) {
+            return tr("\"%1\" is not a whole number.").arg(raw);
+        }
+        break;
+    case config::ValueType::Float:
+        number = raw.toDouble(&ok);
+        if (!ok) {
+            return tr("\"%1\" is not a number.").arg(raw);
+        }
+        break;
+    case config::ValueType::Enum: {
+        const bool known = std::ranges::any_of(
+            option.enumValues, [&](const std::string_view value) -> bool { return toQString(value) == raw; });
+        return known ? QString() : tr("\"%1\" is not one of the allowed values.").arg(raw);
+    }
+    case config::ValueType::String:
+    case config::ValueType::Path:
+    case config::ValueType::Multiline:
+        return {};
+    }
+
+    if (option.hasRange && (number < option.min || number > option.max)) {
+        return tr("%1 is outside the allowed range of %2 to %3.").arg(raw).arg(option.min).arg(option.max);
+    }
+
+    return {};
 }
 
 auto ConfigStore::canonical(const config::ConfigOption& option, const QString& raw) -> QString {

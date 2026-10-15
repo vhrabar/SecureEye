@@ -29,6 +29,9 @@ jobs:
           meson setup build
           ninja -C build
 
+      - name: Run C++ tests
+        run: meson test -C build --print-errorlogs
+
       - name: Check source code
         run: |
           ninja clang-tidy -C build
