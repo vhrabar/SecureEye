@@ -23,6 +23,13 @@ qml_module = qt6.qml_module(
         'qml/pages/Dashboard.qml',
         'qml/pages/Configuration.qml',
         'qml/controls/ConfigRow.qml',
+        'qml/components/SectionHeading.qml',
+        'qml/components/SelectRow.qml',
+        'qml/components/SliderRow.qml',
+        'qml/components/SpinRow.qml',
+        'qml/components/StatusCard.qml',
+        'qml/components/TextRow.qml',
+        'qml/components/ToggleRow.qml',
     ],
     moc_headers : [
         'src/core/ConfigSchema.hpp',

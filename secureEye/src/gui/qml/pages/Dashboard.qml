@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
+import SecureEye.Gui
 
 Kirigami.ScrollablePage {
     title: "Dashboard"
@@ -9,16 +10,10 @@ Kirigami.ScrollablePage {
     ColumnLayout {
         spacing: Kirigami.Units.largeSpacing
 
-        // Header 
-        Kirigami.Heading {
-            level: 1
-            text: "Dashboard"
-        }
-        Controls.Label {
+        SectionHeading {
             Layout.fillWidth: true
-            opacity: 0.7
-            text: "Status overview for face authentication on this machine."
-            wrapMode: Text.WordWrap
+            description: "Status overview for face authentication on this machine."
+            title: "Dashboard"
         }
 
         // Status cards 
@@ -61,14 +56,17 @@ Kirigami.ScrollablePage {
                     }
                 }
             }
-            DotStatusCard {
+            // Placeholder values until the daemon and camera status come over the socket (#24).
+            StatusCard {
                 caption: "DAEMON"
                 detail: "secureeye-authd.service"
+                state: StatusCard.State.Ok
                 status: "Active"
             }
-            DotStatusCard {
+            StatusCard {
                 caption: "CAMERA"
                 detail: "/dev/video0"
+                state: StatusCard.State.Ok
                 status: "Connected"
             }
         }
@@ -107,49 +105,6 @@ Kirigami.ScrollablePage {
         // push everything to the top
         Item {
             Layout.fillHeight: true
-        }
-    }
-
-    // A status card with a coloured status dot (Daemon / Camera)
-    component DotStatusCard: Kirigami.AbstractCard {
-        property string caption
-        property string detail
-        property string status
-
-        Layout.fillHeight: true
-        Layout.fillWidth: true
-        Layout.preferredWidth: Kirigami.Units.gridUnit * 12
-
-        contentItem: ColumnLayout {
-            spacing: Kirigami.Units.smallSpacing
-
-            Controls.Label {
-                font.bold: true
-                font.pointSize: Kirigami.Theme.smallFont.pointSize
-                opacity: 0.6
-                text: caption
-            }
-            RowLayout {
-                spacing: Kirigami.Units.smallSpacing
-
-                Rectangle {
-                    color: Kirigami.Theme.positiveTextColor
-                    implicitHeight: implicitWidth
-                    implicitWidth: Kirigami.Units.gridUnit * 0.5
-                    radius: width / 2
-                }
-                Kirigami.Heading {
-                    level: 1
-                    text: status
-                }
-            }
-            Controls.Label {
-                Layout.fillWidth: true
-                font.family: "monospace"
-                opacity: 0.5
-                text: detail
-                wrapMode: Text.WordWrap
-            }
         }
     }
 }
