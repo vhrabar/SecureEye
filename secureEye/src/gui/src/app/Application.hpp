@@ -1,6 +1,8 @@
 #ifndef SECUREEYE_APPLICATION_HPP
 #define SECUREEYE_APPLICATION_HPP
 
+#include "system/GuiBackend.hpp"
+
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
@@ -18,6 +20,7 @@ private:
     void exposeToQml();
     void loadQml();
 
+    secureEye::GuiBackend m_backend;
     QQmlApplicationEngine m_engine;
     bool m_qmlLoaded = false;
 };

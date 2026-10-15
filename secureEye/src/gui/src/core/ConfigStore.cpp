@@ -1,5 +1,7 @@
 #include "ConfigStore.hpp"
 
+#include "system/GuiBackend.hpp"
+
 #include <QDir>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -62,6 +64,39 @@ auto ConfigStore::isWritable() const -> bool {
     return info.exists() ? info.isWritable() : QFileInfo(info.absolutePath()).isWritable();
 }
 
+auto ConfigStore::canSave() const -> bool {
+    return isWritable() || (m_backend != nullptr && isInstalledConfig());
+}
+
+auto ConfigStore::isInstalledConfig() const -> bool {
+    // `secureEye set` always edits the installed file, so it must not stand in for a SECUREEYE_CONFIG override.
+    return QFileInfo(m_path).canonicalFilePath() ==
+           QFileInfo(QStringLiteral(SECUREEYE_CONFIG_PATH)).canonicalFilePath();
+}
+
+void ConfigStore::setBackend(GuiBackend* backend) {
+    if (m_backend != nullptr) {
+        disconnect(m_backend, nullptr, this, nullptr);
+    }
+    m_backend = backend;
+
+    if (m_backend != nullptr) {
+        connect(m_backend, &GuiBackend::finished, this, [this](const int id) {
+            if (id == m_saveJob) {
+                finishSave(true, {});
+            }
+        });
+        connect(m_backend, &GuiBackend::failed, this,
+                [this](const int id, GuiBackend::Error /*error*/, const QString& /*code*/, const QString& message) {
+                    if (id == m_saveJob) {
+                        finishSave(false, message);
+                    }
+                });
+    }
+
+    emit writableChanged();
+}
+
 void ConfigStore::load() {
     const bool wasDirty = isDirty();
     m_pending.clear();
@@ -91,20 +126,27 @@ void ConfigStore::load() {
 }
 
 void ConfigStore::save() {
+    if (isSaving()) {
+        return;
+    }
+
     if (!isDirty()) {
         emit saveFinished(true, {});
         return;
     }
 
-    if (!isWritable()) {
-        // TODO: route the write through authd (it already speaks over AUTHD_SOCKET_PATH) so that the GUI does not need
-        // to run as root.
-        emit saveFinished(false, tr("%1 is not writable by this user. Saving needs administrator "
-                                    "privileges, which are not wired up yet.")
+    if (isWritable()) {
+        writeDirectly();
+    } else if (m_backend != nullptr && isInstalledConfig()) {
+        writeThroughCli();
+    } else {
+        emit saveFinished(false, tr("%1 is not writable by this user, and only the installed configuration file "
+                                    "can be saved with administrator privileges.")
                                      .arg(m_path));
-        return;
     }
+}
 
+void ConfigStore::writeDirectly() {
     const QString contents = m_document.patched(m_pending);
 
     QSaveFile file(m_path);
@@ -121,6 +163,29 @@ void ConfigStore::save() {
 
     load();
     emit saveFinished(true, {});
+}
+
+void ConfigStore::writeThroughCli() {
+    // `secureEye set` finds options by key alone. That is unambiguous because no key appears in two sections of
+    // config.ini; the schema test for #31 should keep it that way.
+    QStringList pairs;
+    for (auto entry = m_pending.constBegin(); entry != m_pending.constEnd(); ++entry) {
+        pairs << entry.key().mid(entry.key().indexOf(QLatin1Char('/')) + 1) << entry.value();
+    }
+
+    m_saveJob = m_backend->run(QStringLiteral("set"), pairs, GuiBackend::Privilege::Admin);
+    emit savingChanged();
+}
+
+void ConfigStore::finishSave(const bool ok, const QString& error) {
+    m_saveJob = 0;
+    emit savingChanged();
+
+    // Pending edits are kept on failure, so the user can retry or discard them.
+    if (ok) {
+        load();
+    }
+    emit saveFinished(ok, error);
 }
 
 void ConfigStore::revert() {
