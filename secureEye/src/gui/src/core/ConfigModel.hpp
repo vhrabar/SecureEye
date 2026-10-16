@@ -59,6 +59,7 @@ public:
         MaximumRole,
         ModifiedRole,
         ApplicableRole,
+        AdvancedRole,
     };
     Q_ENUM(Role)
 

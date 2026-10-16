@@ -66,6 +66,7 @@ private slots:
 
     void schemaCoversShippedConfig();
     void noKeyInTwoSections();
+    void everyOptionHasATab();
     void untouchedDocumentRoundTripsByteIdentical();
     void saveRewritesOnlyTheEditedLine();
     void dirtyTrackingAndRevert();
@@ -140,6 +141,23 @@ void TestConfigStore::noKeyInTwoSections() {
         QVERIFY2(!sectionOf.contains(name),
                  qPrintable(name + " is in both [" + sectionOf.value(name) + "] and [" + section + "]"));
         sectionOf.insert(name, section);
+    }
+}
+
+void TestConfigStore::everyOptionHasATab() {
+    // The Configuration page makes one tab per section in kSections, so an option whose section is missing there
+    // would never be shown, and a section without options would be an empty tab.
+    QSet<QString> sectionsWithOptions;
+    for (const auto& option : secureEye::config::options()) {
+        QVERIFY2(secureEye::config::findSection(option.section) != nullptr,
+                 qPrintable(toQString(option.section) + "/" + toQString(option.key) +
+                            " belongs to a section that has no tab"));
+        sectionsWithOptions.insert(toQString(option.section));
+    }
+
+    for (const auto& section : secureEye::config::sections()) {
+        QVERIFY2(sectionsWithOptions.contains(toQString(section.name)),
+                 qPrintable("the " + toQString(section.name) + " tab would be empty"));
     }
 }
 

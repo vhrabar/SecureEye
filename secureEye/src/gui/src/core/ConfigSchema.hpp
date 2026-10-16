@@ -46,6 +46,9 @@ struct ConfigOption {
 
     std::string_view requiresKey;
     std::string_view requiresValue;
+
+    // Rarely needed and can break login or desktop apps, so the GUI hides it behind a disclosure.
+    bool advanced = false;
 };
 
 struct ConfigSectionInfo {
@@ -362,6 +365,7 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
         .help = "Show a short but detailed diagnostic report in the console. "
                 "Enabling "
                 "this can make some UI apps fail, only use it to debug.",
+        .advanced = true,
     },
     {
         .section = "debug",
@@ -370,6 +374,7 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
         .defaultValue = "false",
         .label = "Verbose rubberstamps",
         .help = "More verbose logging from the rubberstamps system.",
+        .advanced = true,
     },
     {
         .section = "debug",
@@ -378,6 +383,7 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
         .defaultValue = "false",
         .label = "GTK window output",
         .help = "Pass output of the GTK auth window to the terminal.",
+        .advanced = true,
     },
 });
 
