@@ -85,6 +85,8 @@ auto ConfigModel::data(const QModelIndex& index, const int role) const -> QVaria
 
         return m_store->value(section, toQString(option.requiresKey)).toString() == toQString(option.requiresValue);
     }
+    case AdvancedRole:
+        return option.advanced;
     default:
         return {};
     }
@@ -107,6 +109,7 @@ auto ConfigModel::roleNames() const -> QHash<int, QByteArray> {
         {MaximumRole, "maximum"},
         {ModifiedRole, "modified"},
         {ApplicableRole, "applicable"},
+        {AdvancedRole, "advanced"},
     };
 }
 

@@ -1,0 +1,73 @@
+
+secureeye-gui/
+├── CMakeLists.txt
+├── org.secureeye.gui.qrc / CMakeLists auto-resources
+├── icons/                          # nav + status glyph SVGs
+├── qml/
+│   ├── main.qml                    # Kirigami.ApplicationWindow, globalDrawer nav, pageStack
+│   ├── components/
+│   │   ├── ToggleRow.qml           # label + description + Kirigami/QQC2 Switch
+│   │   ├── SliderRow.qml           # label + description + Slider + value readout
+│   │   ├── SelectRow.qml           # label + description + ComboBox
+│   │   ├── StatusCard.qml          # dashboard status tile (dot + title + detail)
+│   │   ├── SectionHeading.qml
+│   │   └── CameraPreview.qml       # VideoOutput + Canvas/Shape overlay (scan circle, labels)
+│   ├── pages/
+│   │   ├── DashboardPage.qml       # Kirigami.ScrollablePage: status cards + advanced Kirigami.OverlaySheet/Card
+│   │   ├── ConfigPage.qml          # Kirigami.Page with Kirigami.NavigationTabBar (Core/Video/Snapshots/Debug)
+│   │   ├── FaceModelsPage.qml      # Kirigami.CardsGridView of models + Kirigami.OverlayDrawer or PromptDialog for enroll
+│   │   ├── TestRecognitionPage.qml
+│   │   ├── RubberstampsPage.qml    # Kirigami.CardsListView of rules
+│   │   └── LogsPage.qml            # QML ListView + Kirigami.ActionToolBar filter chips
+│   └── dialogs/
+│       └── EnrollDialog.qml        # Kirigami.PromptDialog / Dialog, camera capture flow
+├── src/
+│   ├── main.cpp                    # QGuiApplication, QQmlApplicationEngine, context property registration
+│   ├── core/
+│   │   ├── configstore.h/.cpp      # Q_OBJECT, Q_PROPERTY per config field, load/save config.ini
+│   │   ├── configschema.h          # field metadata (section/key/type/range) shared with QML models
+│   │   ├── modelstore.h/.cpp       # QAbstractListModel over enrolled face models
+│   │   └── ruleset.h/.cpp          # QAbstractListModel over rubberstamps.stamp_rules
+│   ├── ipc/
+│   │   ├── authdclient.h/.cpp      # QObject, Unix socket client, framed JSON protocol, exposes daemonActive/testResult signals
+│   │   └── authdmessages.h
+│   ├── system/
+│   │   ├── daemoncontroller.h/.cpp # Q_INVOKABLE start()/stop()/restart(), systemd/dbus calls
+│   │   ├── pamstatus.h/.cpp        # exposes pamEnabled as Q_PROPERTY
+│   │   └── logsource.h/.cpp        # QAbstractListModel tailing journalctl, exposes filter Q_PROPERTY
+│   └── util/
+│       └── paths.h/.cpp            # mirrors paths_factory.py, Q_INVOKABLE path getters
+├── tests/
+│   ├── CMakeLists.txt
+│   ├── test_configstore.cpp
+│   ├── test_authdclient.cpp
+│   └── tst_ConfigPage.qml          # Qt Quick Test for QML behavior
+└── packaging/
+    ├── secureeye-gui.desktop
+    └── org.secureeye.gui.metainfo.xml
+
+
+
+secureeye-gui/
+├── CMakeLists.txt              # top-level: adds libsecureeyecore, app, (later) kcm
+├── libsecureeyecore/
+│   ├── CMakeLists.txt          # builds a static/shared lib, no GUI deps beyond QtCore/QtNetwork
+│   ├── core/                   # configstore, modelstore, ruleset
+│   ├── ipc/                    # authdclient
+│   ├── system/                 # daemoncontroller, pamstatus, logsource
+│   └── util/                   # paths
+├── app/                        # the standalone window app (was src/)
+│   ├── CMakeLists.txt
+│   ├── main.cpp
+│   ├── app/application.h/.cpp
+│   └── qml/
+│       ├── main.qml            # ApplicationWindow + globalDrawer + pageStack (app-only)
+│       ├── pages/              # DashboardPage, ConfigPage, FaceModelsPage, ...
+│       ├── components/
+│       └── dialogs/
+└── kcm/                        # reserved now, filled in later
+    ├── CMakeLists.txt
+    ├── secureeyekcm.h/.cpp      # KQuickManagedConfigModule subclass, links libsecureeyecore
+    ├── metadata.json            # KPluginFactory metadata (KCM id, categories)
+    └── ui/
+        └── main.qml 

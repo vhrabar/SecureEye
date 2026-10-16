@@ -142,6 +142,32 @@ Kirigami.Page {
         target: ConfigStore
     }
 
+    // The options of one section as form rows. The rows only report edits; this page applies them to the store.
+    component SectionRows: Kirigami.FormLayout {
+        id: sectionRows
+
+        required property string section
+        property bool advanced: false
+        readonly property int count: rows.count
+
+        Repeater {
+            id: rows
+
+            model: ConfigSectionFilter {
+                advanced: sectionRows.advanced
+                section: sectionRows.section
+                sourceModel: ConfigModel
+            }
+
+            delegate: ConfigRow {
+                id: configRow
+
+                onEdited: value => ConfigStore.set(configRow.section, configRow.key, value)
+                onResetRequested: ConfigStore.reset(configRow.section, configRow.key)
+            }
+        }
+    }
+
     component ConfigSectionView: Controls.ScrollView {
         id: sectionView
 
@@ -163,23 +189,38 @@ Kirigami.Page {
                 description: sectionView.info.description
                 title: sectionView.info.title
             }
-            Kirigami.FormLayout {
+            SectionRows {
                 Layout.fillWidth: true
+                section: sectionView.section
+                visible: count > 0
+            }
 
-                Repeater {
-                    model: ConfigSectionFilter {
-                        section: sectionView.section
-                        sourceModel: ConfigModel
-                    }
+            // Options that are rarely needed and can break login or desktop apps stay folded away.
+            Controls.Button {
+                id: advancedToggle
 
-                    // The rows only report edits; this page is what applies them to the store.
-                    delegate: ConfigRow {
-                        id: configRow
+                Layout.leftMargin: Kirigami.Units.largeSpacing
+                checkable: true
+                flat: true
+                icon.name: checked ? "arrow-down" : "arrow-right"
+                text: checked ? "Hide advanced options" : "Show advanced options (%1)".arg(advancedRows.count)
+                visible: advancedRows.count > 0
+            }
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                Layout.leftMargin: Kirigami.Units.largeSpacing
+                Layout.rightMargin: Kirigami.Units.largeSpacing
+                text: "These options are meant for debugging. Some of them can make login prompts or other apps misbehave, so turn them off again when you are done."
+                type: Kirigami.MessageType.Warning
+                visible: advancedToggle.checked
+            }
+            SectionRows {
+                id: advancedRows
 
-                        onEdited: value => ConfigStore.set(configRow.section, configRow.key, value)
-                        onResetRequested: ConfigStore.reset(configRow.section, configRow.key)
-                    }
-                }
+                Layout.fillWidth: true
+                advanced: true
+                section: sectionView.section
+                visible: advancedToggle.checked
             }
             Item {
                 Layout.fillHeight: true
