@@ -3,8 +3,8 @@ if not meson.version().version_compare('>=1.7')
 endif
 
 qt6 = import('qt6')
-qt6_dep = dependency('qt6', modules : ['Core', 'Gui', 'Qml', 'Quick', 'QuickControls2', 'Network'])
-gui_inc = include_directories('src', 'src/core')
+qt6_dep = dependency('qt6', modules : ['Core', 'DBus', 'Gui', 'Qml', 'Quick', 'QuickControls2', 'Network'])
+gui_inc = include_directories('src', 'src/core', 'src/system')
 moc_files = qt6.preprocess(
     moc_headers : [
         'src/app/Application.hpp',
@@ -36,6 +36,8 @@ qml_module = qt6.qml_module(
         'src/core/ConfigStore.hpp',
         'src/core/ConfigModel.hpp',
         'src/core/ConfigSectionFilter.hpp',
+        'src/system/DaemonController.hpp',
+        'src/system/PamStatus.hpp',
     ],
     include_directories : gui_inc,
     dependencies : qt6_dep,
@@ -59,7 +61,9 @@ gui_sources = [
     'src/core/ConfigModel.cpp',
     'src/core/ConfigSectionFilter.cpp',
     'src/core/IniDocument.cpp',
+    'src/system/DaemonController.cpp',
     'src/system/GuiBackend.cpp',
+    'src/system/PamStatus.cpp',
     gui_paths_h,
 ]
 
