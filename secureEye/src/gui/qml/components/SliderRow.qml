@@ -21,7 +21,7 @@ RowLayout {
         id: slider
 
         Layout.preferredWidth: Kirigami.Units.gridUnit * 12
-        sliderRow.from
+        from: sliderRow.from
         stepSize: sliderRow.stepSize
         to: sliderRow.to
         value: sliderRow.value

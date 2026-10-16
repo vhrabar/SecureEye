@@ -60,7 +60,7 @@ RowLayout {
         Layout.preferredWidth: Kirigami.Units.iconSizes.small
         color: Kirigami.Theme.neutralTextColor
         opacity: row.modified ? 1 : 0
-        "emblem-important-symbolic"
+        source: "emblem-important-symbolic"
 
         Controls.ToolTip.text: "Unsaved change"
         Controls.ToolTip.visible: modifiedHover.hovered
@@ -98,7 +98,7 @@ RowLayout {
         id: intEditor
 
         SpinRow {
-            row.hasRange ? Math.round(row.minimum) : -2147483647
+            from: row.hasRange ? Math.round(row.minimum) : -2147483647
             to: row.hasRange ? Math.round(row.maximum) : 2147483647
             value: row.value
 
@@ -109,7 +109,7 @@ RowLayout {
         id: floatEditor
 
         SliderRow {
-            row.hasRange ? row.minimum : 0
+            from: row.hasRange ? row.minimum : 0
             to: row.hasRange ? row.maximum : 100
             value: row.value
 
