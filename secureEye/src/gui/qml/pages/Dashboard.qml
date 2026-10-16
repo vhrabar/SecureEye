@@ -5,7 +5,72 @@ import org.kde.kirigami as Kirigami
 import SecureEye.Gui
 
 Kirigami.ScrollablePage {
+    id: page
+
+    // systemd's ActiveState of the daemon, mapped onto a status card.
+    readonly property var daemonStatus: {
+        if (!DaemonController.installed) {
+            return {
+                state: StatusCard.State.Error,
+                text: "Not installed"
+            };
+        }
+        switch (DaemonController.activeState) {
+        case "active":
+            return {
+                state: StatusCard.State.Ok,
+                text: "Running"
+            };
+        case "activating":
+        case "reloading":
+            return {
+                state: StatusCard.State.Warning,
+                text: "Starting"
+            };
+        case "deactivating":
+            return {
+                state: StatusCard.State.Warning,
+                text: "Stopping"
+            };
+        case "failed":
+            return {
+                state: StatusCard.State.Error,
+                text: "Failed"
+            };
+        case "inactive":
+            return {
+                state: StatusCard.State.Error,
+                text: "Stopped"
+            };
+        default:
+            return {
+                state: StatusCard.State.Unknown,
+                text: "Unknown"
+            };
+        }
+    }
+
+    function showError(message: string): void {
+        errorMessage.text = message;
+        errorMessage.visible = true;
+    }
+
     title: "Dashboard"
+
+    Connections {
+        function onFailed(message: string): void {
+            page.showError(message);
+        }
+
+        target: DaemonController
+    }
+    Connections {
+        function onFailed(message: string): void {
+            page.showError(message);
+        }
+
+        target: PamStatus
+    }
 
     ColumnLayout {
         spacing: Kirigami.Units.largeSpacing
@@ -14,6 +79,13 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             description: "Status overview for face authentication on this machine."
             title: "Dashboard"
+        }
+        Kirigami.InlineMessage {
+            id: errorMessage
+
+            Layout.fillWidth: true
+            showCloseButton: true
+            type: Kirigami.MessageType.Error
         }
 
         // Status cards 
@@ -40,29 +112,43 @@ Kirigami.ScrollablePage {
                             text: "FACE AUTHENTICATION"
                         }
                         Controls.Switch {
-                            checked: true
+                            id: pamSwitch
+
+                            // Applies right away (with a polkit prompt) instead of waiting for Save on the
+                            // Configuration page.
+                            checked: PamStatus.enabled
+                            enabled: !PamStatus.busy
+
+                            onToggled: {
+                                PamStatus.setEnabled(pamSwitch.checked);
+                                // Clicking breaks the binding; restore it so the switch follows the real state, and
+                                // flips back when the change is refused or cancelled.
+                                pamSwitch.checked = Qt.binding(() => PamStatus.enabled);
+                            }
                         }
                     }
                     Kirigami.Heading {
-                        color: Kirigami.Theme.positiveTextColor
+                        color: PamStatus.enabled ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.neutralTextColor
                         level: 1
-                        text: "Enabled"
+                        text: PamStatus.busy ? "Switching…" : PamStatus.enabled ? "Enabled" : "Disabled"
                     }
                     Controls.Label {
                         Layout.fillWidth: true
                         opacity: 0.5
-                        text: "PAM module active for this account (core.disabled = false)"
+                        text: "core.disabled = %1".arg(PamStatus.enabled ? "false" : "true")
                         wrapMode: Text.WordWrap
                     }
                 }
             }
-            // Placeholder values until the daemon and camera status come over the socket (#24).
             StatusCard {
                 caption: "DAEMON"
-                detail: "secureeye-authd.service"
-                state: StatusCard.State.Ok
-                status: "Active"
+                detail: DaemonController.subState
+                    ? "%1 (%2)".arg(DaemonController.unitName).arg(DaemonController.subState)
+                    : DaemonController.unitName
+                state: page.daemonStatus.state
+                status: page.daemonStatus.text
             }
+            // Placeholder until the camera status comes from the daemon (#24, #30).
             StatusCard {
                 caption: "CAMERA"
                 detail: "/dev/video0"
@@ -96,8 +182,42 @@ Kirigami.ScrollablePage {
                     text: "Advanced & system control"
                 }
                 Controls.Label {
+                    Layout.fillWidth: true
                     opacity: 0.6
-                    text: "Daemon service, IPC socket, PAM enrollment detail"
+                    text: "Start, stop or restart the authentication daemon. Face login does not work while it is stopped."
+                    wrapMode: Text.WordWrap
+                }
+                RowLayout {
+                    enabled: DaemonController.installed && !DaemonController.busy
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Controls.Button {
+                        enabled: DaemonController.activeState !== "active"
+                        icon.name: "media-playback-start"
+                        text: "Start"
+
+                        onClicked: DaemonController.start()
+                    }
+                    Controls.Button {
+                        enabled: DaemonController.activeState === "active"
+                        icon.name: "media-playback-stop"
+                        text: "Stop"
+
+                        onClicked: DaemonController.stop()
+                    }
+                    Controls.Button {
+                        enabled: DaemonController.activeState === "active"
+                        icon.name: "view-refresh"
+                        text: "Restart"
+
+                        onClicked: DaemonController.restart()
+                    }
+                    Controls.BusyIndicator {
+                        Layout.preferredHeight: Kirigami.Units.iconSizes.medium
+                        Layout.preferredWidth: Kirigami.Units.iconSizes.medium
+                        running: DaemonController.busy
+                        visible: running
+                    }
                 }
             }
         }
