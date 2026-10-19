@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -40,9 +41,9 @@ def dlib_backend(monkeypatch):
     monkeypatch.setitem(sys.modules, "dlib", fake_dlib)
     monkeypatch.delitem(sys.modules, "auth.legacy.dlib_backend", raising=False)
 
-    from auth.legacy import dlib_backend
-
-    return dlib_backend
+    # import_module, not `from auth.legacy import ...`: the package attribute may
+    # still hold a module bound to another test's fake dlib.
+    return importlib.import_module("auth.legacy.dlib_backend")
 
 
 def _backend(found=(), descriptor=None):

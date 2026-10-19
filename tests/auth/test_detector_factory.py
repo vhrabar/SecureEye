@@ -10,7 +10,15 @@ SRC_DIR = str(Path(__file__).resolve().parents[2] / "secureEye" / "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from auth.detector_factory import DetectorFactoryError, create_detector  # noqa: E402
+from auth import detector_factory  # noqa: E402
+from auth.detector_factory import DetectorFactoryError, create_pipeline  # noqa: E402
+from auth.interfaces import Detector, Recognizer  # noqa: E402
+from auth.template_store import LEGACY_MODEL_IDS  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _empty_cache(monkeypatch):
+    monkeypatch.setattr(detector_factory, "_pipeline_cache", {})
 
 
 def _make_config(*, backend: str, use_cnn: bool = False) -> ConfigParser:
@@ -36,26 +44,46 @@ def _install_detector_module(monkeypatch, module_name: str, class_name: str, cls
     monkeypatch.setitem(sys.modules, module_name, detector_module)
 
 
-def test_dlib_initializes_and_populates_legacy_handles(monkeypatch):
-    class FakeDlibDetector:
-        def __init__(self, cnn=False):
-            self.cnn = cnn
-            self.detector = object()
-            self.pose_predictor = object()
+class FakeDlibDetector:
+    def __init__(self, cnn=False):
+        self.cnn = cnn
+        self.detector = object()
+        self.pose_predictor = object()
 
+
+def _install_fake_dlib(monkeypatch):
+    monkeypatch.setitem(sys.modules, "dlib", ModuleType("dlib"))
+    monkeypatch.delitem(sys.modules, "auth.legacy.dlib_backend", raising=False)
     _install_detector_module(
         monkeypatch, "detectors.dlib_detector", "DlibDetector", FakeDlibDetector
     )
 
-    bundle = create_detector(_make_config(backend="dlib", use_cnn=True))
+
+def test_dlib_builds_legacy_pipeline(monkeypatch):
+    _install_fake_dlib(monkeypatch)
+
+    bundle = create_pipeline(_make_config(backend="dlib", use_cnn=True))
 
     assert bundle.backend == "dlib"
-    assert bundle.detector.cnn is True
-    assert bundle.legacy_face_detector is bundle.detector.detector
-    assert bundle.legacy_pose_predictor is bundle.detector.pose_predictor
+    assert isinstance(bundle.detector, Detector)
+    assert isinstance(bundle.recognizer, Recognizer)
+    assert bundle.recognizer.model_id == LEGACY_MODEL_IDS["dlib"]
+    assert bundle.liveness is None
 
 
-def test_mediapipe_initializes(monkeypatch):
+def test_dlib_stages_share_one_backend_and_expose_legacy_handles(monkeypatch):
+    _install_fake_dlib(monkeypatch)
+
+    bundle = create_pipeline(_make_config(backend="dlib", use_cnn=True))
+
+    backend = bundle.detector._backend
+    assert backend.cnn is True
+    assert bundle.recognizer._backend is backend
+    assert bundle.legacy_face_detector is backend.detector
+    assert bundle.legacy_pose_predictor is backend.pose_predictor
+
+
+def test_mediapipe_builds_legacy_pipeline(monkeypatch):
     class FakeMediaPipeDetector:
         pass
 
@@ -66,14 +94,25 @@ def test_mediapipe_initializes(monkeypatch):
         FakeMediaPipeDetector,
     )
 
-    bundle = create_detector(_make_config(backend="mediapipe"))
+    bundle = create_pipeline(_make_config(backend="mediapipe"))
 
     assert bundle.backend == "mediapipe"
-    assert isinstance(bundle.detector, FakeMediaPipeDetector)
+    assert isinstance(bundle.detector, Detector)
+    assert isinstance(bundle.recognizer, Recognizer)
+    assert bundle.recognizer.model_id == LEGACY_MODEL_IDS["mediapipe"]
     assert bundle.legacy_face_detector is None
     assert bundle.legacy_pose_predictor is None
 
 
+def test_pipeline_is_cached_per_config(monkeypatch):
+    _install_fake_dlib(monkeypatch)
+
+    first = create_pipeline(_make_config(backend="dlib"))
+
+    assert create_pipeline(_make_config(backend="dlib")) is first
+    assert create_pipeline(_make_config(backend="dlib", use_cnn=True)) is not first
+
+
 def test_unsupported_backend_raises_factory_error():
     with pytest.raises(DetectorFactoryError, match="Unsupported detector backend"):
-        create_detector(_make_config(backend="unknown"))
+        create_pipeline(_make_config(backend="unknown"))

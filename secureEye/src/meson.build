@@ -27,6 +27,7 @@ py_sources = [
     'auth/interfaces.py',
     'auth/legacy/__init__.py',
     'auth/legacy/dlib_backend.py',
+    'auth/legacy/mediapipe_backend.py',
     'auth/matching.py',
     'auth/model_store.py',
     'auth/session.py',
