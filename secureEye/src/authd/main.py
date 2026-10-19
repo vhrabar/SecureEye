@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import paths_factory
 from auth import ExitCode, AuthSession
-from auth.detector_factory import create_detector
+from auth.detector_factory import create_pipeline
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
 PROTO_VERSION = 1
@@ -217,7 +217,7 @@ def _warm_detector() -> None:
     try:
         config = configparser.ConfigParser()
         config.read(paths_factory.config_file_path())
-        create_detector(config)
+        create_pipeline(config)
     except Exception as exc:
         syslog.syslog(
             syslog.LOG_WARNING,

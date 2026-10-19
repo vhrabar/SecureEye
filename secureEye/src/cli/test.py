@@ -12,7 +12,7 @@ import numpy as np
 
 import paths_factory
 from auth import template_store
-from auth.detector_factory import create_detector, DetectorFactoryError
+from auth.detector_factory import create_pipeline, DetectorFactoryError
 from auth.matching import best_match
 from i18n import _
 from recorders.video_capture import VideoCapture
@@ -71,7 +71,7 @@ def print_text(line_number, text):
 
 
 try:
-    detector_bundle = create_detector(config)
+    detector_bundle = create_pipeline(config)
 except FileNotFoundError:
     print(_("Data files have not been downloaded, please run the following commands:"))
     print("\n\tcd " + paths_factory.dlib_data_dir_path())
@@ -94,11 +94,9 @@ except template_store.TemplateSpaceMismatch as exc:
     print(str(exc))
 
 
-def face_bounds(loc):
-    """Return (left, top, right, bottom) for dlib rectangles and (x, y, w, h) tuples."""
-    if hasattr(loc, "left"):
-        return loc.left(), loc.top(), loc.right(), loc.bottom()
-    x, y, w, h = loc
+def face_bounds(bbox):
+    """Return (left, top, right, bottom) for an (x, y, w, h) box."""
+    x, y, w, h = bbox
     left = int(x)
     top = int(y)
     right = int(x + w)
@@ -220,14 +218,14 @@ try:
 
             # Get the locations of all faces and their locations
             # Upsample it once
-            face_locations = detector_bundle.detector.detect(frame)
+            faces = detector_bundle.detector.detect(frame)
             rec_tm = time.time() - rec_tm
 
             # Loop though all faces and paint a circle around them
-            for loc in face_locations:
+            for face in faces:
                 # By default the circle around the face is red for no match
                 color = (0, 0, 230)
-                left, top, right, bottom = face_bounds(loc)
+                left, top, right, bottom = face_bounds(face.bbox)
 
                 # Get the center X and Y from the rectangular points
                 x = int((right - left) / 2) + left
@@ -241,9 +239,7 @@ try:
                 # If we have models defined for the current user
                 if templates:
                     # Get the encoding of the face in the frame
-                    face_encoding = np.asarray(
-                        detector_bundle.detector.encode(orig_frame, loc), dtype=np.float32
-                    )
+                    face_encoding = detector_bundle.recognizer.embed(orig_frame, face).vector
 
                     # Match this found face against a known face
                     match_index, match = best_match(templates.matrix, face_encoding)

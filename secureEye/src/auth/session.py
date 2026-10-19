@@ -3,7 +3,6 @@ from __future__ import annotations
 import _thread as thread
 import configparser
 import cv2
-import numpy as np
 import os
 import threading
 import time
@@ -15,7 +14,7 @@ import snapshot
 from i18n import _
 from recorders.video_capture import VideoCapture
 from . import template_store
-from .detector_factory import create_detector, DetectorFactoryError
+from .detector_factory import create_pipeline, DetectorFactoryError
 from .errors import ExitCode
 from .frame_ops import apply_rotation_mode, darkness_percent, maybe_scale
 from .matching import best_match, is_match
@@ -155,12 +154,9 @@ class AuthSession:
                 frame, gsframe = maybe_scale(frame, gsframe, scaling_factor)
                 frame, gsframe = apply_rotation_mode(frame, gsframe, rotate, stats.frames)
 
-                for face_location in detector_bundle.detector.detect(gsframe):
-                    face_encoding = np.asarray(
-                        detector_bundle.detector.encode(frame, face_location),
-                        dtype=np.float32,
-                    )
-                    match_index, match = best_match(templates.matrix, face_encoding)
+                for face in detector_bundle.detector.detect(gsframe):
+                    embedding = detector_bundle.recognizer.embed(frame, face)
+                    match_index, match = best_match(templates.matrix, embedding.vector)
                     stats.lowest_certainty = min(stats.lowest_certainty, match)
 
                     if not is_match(match, video_certainty):
@@ -209,7 +205,7 @@ class AuthSession:
 
         def _target():
             try:
-                holder["bundle"] = create_detector(config)
+                holder["bundle"] = create_pipeline(config)
                 self.timings["ll"] = time.time() - self.timings["ll"]
             except FileNotFoundError:
                 print(_("Data files have not been downloaded, please run the following commands:"))
