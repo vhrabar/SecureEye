@@ -17,7 +17,7 @@ from . import template_store
 from .detector_factory import create_pipeline, DetectorFactoryError
 from .errors import ExitCode
 from .frame_ops import apply_rotation_mode, darkness_percent, maybe_scale
-from .matching import best_match, is_match
+from .pipeline import Pipeline
 from .template_store import TemplateSet, TemplateSpaceMismatch, TemplateStoreError
 from .types import RuntimeStats
 from .ui_bridge import AuthUiBridge
@@ -89,6 +89,12 @@ class AuthSession:
             print(detector_error)
             return 1
 
+        try:
+            pipeline = Pipeline(detector_bundle, templates, video_certainty)
+        except ValueError as exc:
+            print(str(exc))
+            return int(ExitCode.TEMPLATE_MODEL_MISMATCH)
+
         self.timings["ic"] = time.time()
         video_capture = VideoCapture(config)
         with self._state_lock:
@@ -154,12 +160,11 @@ class AuthSession:
                 frame, gsframe = maybe_scale(frame, gsframe, scaling_factor)
                 frame, gsframe = apply_rotation_mode(frame, gsframe, rotate, stats.frames)
 
-                for face in detector_bundle.detector.detect(gsframe):
-                    embedding = detector_bundle.recognizer.embed(frame, face)
-                    match_index, match = best_match(templates.matrix, embedding.vector)
-                    stats.lowest_certainty = min(stats.lowest_certainty, match)
+                for result in pipeline.scan(frame, gsframe):
+                    if result.row >= 0:
+                        stats.lowest_certainty = min(stats.lowest_certainty, result.distance)
 
-                    if not is_match(match, video_certainty):
+                    if not result.accepted:
                         continue
 
                     self.timings["tt"] = time.time() - self.timings["st"]
@@ -167,7 +172,13 @@ class AuthSession:
 
                     if end_report:
                         self._print_end_report(
-                            templates, match_index, match, stats, video_capture, frame, height
+                            templates,
+                            result.row,
+                            result.distance,
+                            stats,
+                            video_capture,
+                            frame,
+                            height,
                         )
 
                     if save_successful:

@@ -13,7 +13,7 @@ import numpy as np
 import paths_factory
 from auth import template_store
 from auth.detector_factory import create_pipeline, DetectorFactoryError
-from auth.matching import best_match
+from auth.pipeline import Pipeline
 from i18n import _
 from recorders.video_capture import VideoCapture
 
@@ -92,6 +92,13 @@ except template_store.TemplateSchemaError as exc:
     print(_("Model file has invalid encoding dimensions, skipping recognition: ") + str(exc))
 except template_store.TemplateSpaceMismatch as exc:
     print(str(exc))
+
+pipeline = None
+if templates is not None:
+    try:
+        pipeline = Pipeline(detector_bundle, templates, video_certainty)
+    except ValueError as exc:
+        print(str(exc))
 
 
 def face_bounds(bbox):
@@ -237,21 +244,20 @@ try:
                 r = int(r + (r * 0.2))
 
                 # If we have models defined for the current user
-                if templates:
-                    # Get the encoding of the face in the frame
-                    face_encoding = detector_bundle.recognizer.embed(orig_frame, face).vector
-
-                    # Match this found face against a known face
-                    match_index, match = best_match(templates.matrix, face_encoding)
-                    owner = templates.owner_of(match_index)
+                if pipeline is not None:
+                    # Embed the face and match it against the known faces
+                    result = pipeline.match(orig_frame, face)
+                    owner = pipeline.owner_of(result)
 
                     # If a model matches
-                    if 0 < match < video_certainty and owner is not None:
+                    if result.accepted and owner is not None:
                         # Turn the circle green
                         color = (0, 230, 0)
 
                         # Print the name of the model next to the circle
-                        circle_text = "{} (certainty: {})".format(owner.label, round(match * 10, 3))
+                        circle_text = "{} (certainty: {})".format(
+                            owner.label, round(result.distance * 10, 3)
+                        )
                         cv2.putText(
                             overlay,
                             circle_text,

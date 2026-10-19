@@ -30,6 +30,7 @@ py_sources = [
     'auth/legacy/mediapipe_backend.py',
     'auth/matching.py',
     'auth/model_store.py',
+    'auth/pipeline.py',
     'auth/session.py',
     'auth/template_store.py',
     'auth/types.py',
