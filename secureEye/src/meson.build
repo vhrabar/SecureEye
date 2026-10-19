@@ -25,6 +25,8 @@ py_sources = [
     'auth/errors.py',
     'auth/frame_ops.py',
     'auth/interfaces.py',
+    'auth/legacy/__init__.py',
+    'auth/legacy/dlib_backend.py',
     'auth/matching.py',
     'auth/model_store.py',
     'auth/session.py',
