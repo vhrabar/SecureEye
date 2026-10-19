@@ -11,8 +11,9 @@ import cv2
 import numpy as np
 
 import paths_factory
-from auth.detector_factory import create_detector, DetectorFactoryError
-from auth.model_store import load_user_models, ModelFileNotFound, EmptyModelStore, ModelSchemaError
+from auth import template_store
+from auth.detector_factory import create_pipeline, DetectorFactoryError
+from auth.pipeline import Pipeline
 from i18n import _
 from recorders.video_capture import VideoCapture
 
@@ -70,7 +71,7 @@ def print_text(line_number, text):
 
 
 try:
-    detector_bundle = create_detector(config)
+    detector_bundle = create_pipeline(config)
 except FileNotFoundError:
     print(_("Data files have not been downloaded, please run the following commands:"))
     print("\n\tcd " + paths_factory.dlib_data_dir_path())
@@ -80,23 +81,29 @@ except DetectorFactoryError as exc:
     print(exc)
     sys.exit(1)
 
-encodings = None
-models = None
+templates = None
 
 try:
     user = builtins.secureEye_user
-    models, encodings = load_user_models(user)
-except (ModelFileNotFound, EmptyModelStore):
+    templates = template_store.load(user, model_id=template_store.active_model_id(config))
+except (template_store.TemplateFileNotFound, template_store.EmptyTemplateStore):
     pass
-except ModelSchemaError as exc:
+except template_store.TemplateSchemaError as exc:
     print(_("Model file has invalid encoding dimensions, skipping recognition: ") + str(exc))
+except template_store.TemplateSpaceMismatch as exc:
+    print(str(exc))
+
+pipeline = None
+if templates is not None:
+    try:
+        pipeline = Pipeline(detector_bundle, templates, video_certainty)
+    except ValueError as exc:
+        print(str(exc))
 
 
-def face_bounds(loc):
-    """Return (left, top, right, bottom) for dlib rectangles and (x, y, w, h) tuples."""
-    if hasattr(loc, "left"):
-        return loc.left(), loc.top(), loc.right(), loc.bottom()
-    x, y, w, h = loc
+def face_bounds(bbox):
+    """Return (left, top, right, bottom) for an (x, y, w, h) box."""
+    x, y, w, h = bbox
     left = int(x)
     top = int(y)
     right = int(x + w)
@@ -218,14 +225,14 @@ try:
 
             # Get the locations of all faces and their locations
             # Upsample it once
-            face_locations = detector_bundle.detector.detect(frame)
+            faces = detector_bundle.detector.detect(frame)
             rec_tm = time.time() - rec_tm
 
             # Loop though all faces and paint a circle around them
-            for loc in face_locations:
+            for face in faces:
                 # By default the circle around the face is red for no match
                 color = (0, 0, 230)
-                left, top, right, bottom = face_bounds(loc)
+                left, top, right, bottom = face_bounds(face.bbox)
 
                 # Get the center X and Y from the rectangular points
                 x = int((right - left) / 2) + left
@@ -237,27 +244,19 @@ try:
                 r = int(r + (r * 0.2))
 
                 # If we have models defined for the current user
-                if models:
-                    # Get the encoding of the face in the frame
-                    face_encoding = np.asarray(
-                        detector_bundle.detector.encode(orig_frame, loc), dtype=np.float32
-                    )
-
-                    # Match this found face against a known face
-                    matches = np.linalg.norm(encodings - face_encoding, axis=1)
-
-                    # Get best match
-                    match_index = np.argmin(matches)
-                    match = matches[match_index]
+                if pipeline is not None:
+                    # Embed the face and match it against the known faces
+                    result = pipeline.match(orig_frame, face)
+                    owner = pipeline.owner_of(result)
 
                     # If a model matches
-                    if 0 < match < video_certainty:
+                    if result.accepted and owner is not None:
                         # Turn the circle green
                         color = (0, 230, 0)
 
                         # Print the name of the model next to the circle
                         circle_text = "{} (certainty: {})".format(
-                            models[match_index]["label"], round(match * 10, 3)
+                            owner.label, round(result.distance * 10, 3)
                         )
                         cv2.putText(
                             overlay,
