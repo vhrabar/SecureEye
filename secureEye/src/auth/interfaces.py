@@ -23,6 +23,8 @@ def _no_landmarks() -> Landmarks:
 class Face:
     """
     One detected face: its box, optional landmarks and detector confidence.
+
+    ``bbox`` is ``(x, y, width, height)`` in pixels.
     """
 
     bbox: tuple[int, int, int, int]
@@ -48,7 +50,10 @@ class LivenessResult:
 @dataclass(frozen=True, eq=False)
 class Embedding:
     """
-    An L2-normalized face template, tagged with the space it lives in.
+    A face template, tagged with the space it lives in.
+
+    Recognizers L2-normalize via :meth:`normalized`; only the legacy dlib
+    recognizer keeps raw descriptors, which :meth:`cosine` does not expect.
     """
 
     vector: Vector
@@ -102,7 +107,7 @@ class Recognizer(ABC):
     @abstractmethod
     def model_id(self) -> str:
         """
-        Identifier of the embedding spac.
+        Identifier of the embedding space.
         """
 
     @property
@@ -115,7 +120,8 @@ class Recognizer(ABC):
     @abstractmethod
     def embed(self, frame: Frame, face: Face) -> Embedding:
         """
-        Return an L2-normalized template for ``face`` as seen in ``frame``.
+        Return a template for ``face`` as seen in ``frame``, L2-normalized
+        unless the recognizer documents otherwise.
         """
 
 
