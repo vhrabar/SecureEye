@@ -4,14 +4,14 @@ import sys
 
 import paths_factory
 from auth import template_store
-from cli.enrollment import ask_label, capture_encoding, ensure_models_dir, load_detector
+from cli.enrollment import ask_label, capture_embedding, ensure_models_dir, load_pipeline
 from i18n import _
 
 # Read config from disk
 config = configparser.ConfigParser()
 config.read(paths_factory.config_file_path())
 
-detector = load_detector(config)
+bundle = load_pipeline(config)
 
 user = builtins.secureEye_user
 # The embedding space the new model will be tagged with
@@ -50,14 +50,14 @@ else:
 
 label = ask_label(label)
 
-face_encoding = capture_encoding(config, detector)
+embedding = capture_embedding(config, bundle)
 
 # Save the new template to disk, tagged with the space that produced it
 template_store.append(
     user,
     model_id=model_id,
     label=label,
-    embeddings=face_encoding,
+    embeddings=embedding.vector,
 )
 
 # Give let the user know how it went

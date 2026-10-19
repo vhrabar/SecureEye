@@ -135,12 +135,18 @@ def test_clear_deletes_model_file(cli_env, capsys):
 def fake_camera(monkeypatch):
     """Stand in for the detector and the capture loop of a re-enroll run."""
     import cli.enrollment
+    from auth import template_store
+    from auth.interfaces import Embedding
 
     captured = np.full(128, 0.7, dtype=np.float32)
-    monkeypatch.setattr(cli.enrollment, "load_detector", lambda _config: object())
+
+    def capture_embedding(config, _bundle):
+        return Embedding(captured, template_store.active_model_id(config), 128)
+
+    monkeypatch.setattr(cli.enrollment, "load_pipeline", lambda _config: object())
     monkeypatch.setattr(cli.enrollment, "ensure_models_dir", lambda: None)
     monkeypatch.setattr(cli.enrollment, "ask_label", lambda default: default)
-    monkeypatch.setattr(cli.enrollment, "capture_encoding", lambda _config, _detector: captured)
+    monkeypatch.setattr(cli.enrollment, "capture_embedding", capture_embedding)
     return captured
 
 
@@ -252,3 +258,56 @@ def test_snap_generates_snapshot(cli_env, monkeypatch, capsys):
     assert "generated snapshot saved as" in out.lower()
     assert "/tmp/snap.jpg" in out
     assert len(calls["frames"]) == 4
+
+
+def _bundle_producing(model_id):
+    return SimpleNamespace(recognizer=SimpleNamespace(model_id=model_id))
+
+
+def _config(text=""):
+    from configparser import ConfigParser
+
+    config = ConfigParser()
+    config.read_string(text)
+    return config
+
+
+def test_load_pipeline_returns_bundle_of_the_active_space(monkeypatch):
+    import cli.enrollment
+
+    bundle = _bundle_producing("dlib-resnet-v1")
+    monkeypatch.setattr(cli.enrollment, "create_pipeline", lambda _config: bundle)
+
+    assert cli.enrollment.load_pipeline(_config()) is bundle
+
+
+def test_load_pipeline_refuses_a_recognizer_from_another_space(monkeypatch, capsys):
+    """Enrolling would store dlib vectors stamped with the configured ONNX space."""
+    import cli.enrollment
+
+    monkeypatch.setattr(
+        cli.enrollment, "create_pipeline", lambda _config: _bundle_producing("dlib-resnet-v1")
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.enrollment.load_pipeline(_config("[core]\npipeline = onnx\n"))
+
+    assert excinfo.value.code == 1
+    out = capsys.readouterr().out
+    assert "dlib-resnet-v1" in out and "sface-2021dec" in out
+
+
+def test_load_pipeline_reports_factory_errors(monkeypatch, capsys):
+    import cli.enrollment
+    from auth.detector_factory import DetectorFactoryError
+
+    def fail(_config):
+        raise DetectorFactoryError("Unsupported detector backend: nope")
+
+    monkeypatch.setattr(cli.enrollment, "create_pipeline", fail)
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.enrollment.load_pipeline(_config())
+
+    assert excinfo.value.code == 1
+    assert "Unsupported detector backend" in capsys.readouterr().out
