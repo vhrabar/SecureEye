@@ -4,7 +4,7 @@ import sys
 
 import paths_factory
 from auth import template_store
-from cli.enrollment import ask_label, capture_encoding, ensure_models_dir, load_detector
+from cli.enrollment import ask_label, capture_embedding, ensure_models_dir, load_pipeline
 from i18n import _
 
 # Read config from disk
@@ -50,20 +50,20 @@ if stale and not builtins.secureEye_args.y:
     # Add a padding empty line
     print()
 
-detector = load_detector(config)
+bundle = load_pipeline(config)
 
 ensure_models_dir()
 
 label = ask_label(_("Model #") + str(template_store.next_id(templates)))
 
-face_encoding = capture_encoding(config, detector)
+embedding = capture_embedding(config, bundle)
 
 # Only the models of the active space are replaced; the rest survive untouched
 template_store.replace_space(
     user,
     model_id=model_id,
     label=label,
-    embeddings=face_encoding,
+    embeddings=embedding.vector,
 )
 
 print(

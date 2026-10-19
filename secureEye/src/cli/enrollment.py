@@ -6,6 +6,9 @@ import time
 import numpy as np
 
 import paths_factory
+from auth import template_store
+from auth.detector_factory import DetectorFactoryError, PipelineBundle, create_pipeline
+from auth.interfaces import Embedding
 from i18n import _
 from recorders.video_capture import VideoCapture
 
@@ -16,19 +19,16 @@ MAX_FRAMES = 60
 MAX_LABEL_LENGTH = 24
 
 
-def load_detector(config):
-    """Build the configured detector, exiting with guidance if it cannot load."""
+def load_pipeline(config) -> PipelineBundle:
+    """Build the configured pipeline, exiting with guidance if it cannot load.
+
+    Also refuses a pipeline whose recognizer does not produce the embedding
+    space the config expects, since its templates would be stored mislabelled.
+    """
     use_mediapipe = config.get("core", "detector_backend", fallback="dlib") == "mediapipe"
 
     try:
-        try:
-            from detectors import Detector
-        except ModuleNotFoundError as exc:
-            if getattr(exc, "name", "") != "detectors":
-                raise
-            from secureEye.src.detectors import Detector
-
-        return Detector(config)
+        bundle = create_pipeline(config)
     except ImportError as err:
         print(err)
         if use_mediapipe:
@@ -43,6 +43,20 @@ def load_detector(config):
         print("\n\tcd " + paths_factory.dlib_data_dir_path())
         print("\tsudo ./install.sh\n")
         sys.exit(1)
+    except DetectorFactoryError as exc:
+        print(exc)
+        sys.exit(1)
+
+    expected = template_store.active_model_id(config)
+    if bundle.recognizer.model_id != expected:
+        print(
+            _(
+                "The configured recognizer produces {actual} models, but {expected} is active"
+            ).format(actual=bundle.recognizer.model_id, expected=expected)
+        )
+        sys.exit(1)
+
+    return bundle
 
 
 def ensure_models_dir():
@@ -73,8 +87,8 @@ def ask_label(default: str) -> str:
     return label
 
 
-def capture_encoding(config, detector) -> np.ndarray:
-    """Capture one face from the camera and return its encoding.
+def capture_embedding(config, bundle: PipelineBundle) -> Embedding:
+    """Capture one face from the camera and return its embedding.
 
     Exits with an explanation when no usable face turns up.
     """
@@ -97,7 +111,7 @@ def capture_encoding(config, detector) -> np.ndarray:
     dark_tries = 0
     # Track the running darkness total
     dark_running_total = 0
-    face_locations = None
+    faces = None
     frame = None
 
     dark_threshold = config.getfloat("video", "dark_threshold", fallback=60)
@@ -135,17 +149,17 @@ def capture_encoding(config, detector) -> np.ndarray:
             dark_tries += 1
             continue
 
-        # Get all faces from that frame as encodings
-        face_locations = detector.detect(gsframe)
+        # Get all faces from that frame
+        faces = bundle.detector.detect(gsframe)
 
         # If we've found at least one, we can continue
-        if face_locations:
+        if faces:
             break
 
     video_capture.release()
 
     # If we've found no faces, try to determine why
-    if not face_locations:
+    if not faces:
         if valid_frames == 0:
             print(_("Camera saw only black frames - is IR emitter working?"))
         elif valid_frames == dark_tries:
@@ -160,8 +174,10 @@ def capture_encoding(config, detector) -> np.ndarray:
         sys.exit(1)
 
     # If more than 1 faces are detected we can't know which one belongs to the user
-    if len(face_locations) > 1:
+    if len(faces) > 1:
         print(_("Multiple faces detected, aborting"))
         sys.exit(1)
 
-    return np.array(detector.encode(frame, face_locations[0]))
+    # Faces were found, so a frame was read
+    assert frame is not None
+    return bundle.recognizer.embed(frame, faces[0])
