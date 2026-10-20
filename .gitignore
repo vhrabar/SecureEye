@@ -130,6 +130,9 @@ debian/howdy
 # JetBrains IDEs
 .idea/
 
+# JetBrains
+.idea/
+
 # Local History for Visual Studio Code
 .history/
 

@@ -1,37 +1,22 @@
 import configparser
-import json
 import os
 import signal
 import socket
-import struct
 import sys
 import syslog
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-from dataclasses import dataclass
 
 import paths_factory
 from auth import ExitCode, AuthSession
 from auth.detector_factory import create_detector
+from authd.protocol import PROTO_VERSION, read_frame, validate_auth_request, write_frame
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
-PROTO_VERSION = 1
-MAX_PAYLOAD = 4096
-DEFAULT_DEADLINE_MS = 2500
 INTERNAL_ERROR_CODE = 99
 
 # time between the daemon's own worker deadline and the client's transport deadline
 RESPONSE_MARGIN_MS = 700
-
-
-@dataclass
-class AuthRequest:
-    id: str
-    username: str
-    service: str
-    tty: str
-    rhost: str
-    deadline_ms: int
 
 
 def _prepare_socket(socket_path: str) -> socket.socket:
@@ -52,102 +37,6 @@ def _prepare_socket(socket_path: str) -> socket.socket:
     return sock
 
 
-def _read_socket(conn: socket.socket, size: int) -> bytes:
-    """
-    Read a fixed-size chunk from the client.
-    :param conn: the client connection
-    :size: number of bytes to read
-    :return: the read bytes
-    :raises ConnectionError: if the peer closed the connection before sending all data
-    """
-    data = bytearray()
-    while len(data) < size:
-        chunk = conn.recv(size - len(data))
-        if not chunk:
-            raise ConnectionError("peer closed connection")
-        data.extend(chunk)
-    return bytes(data)
-
-
-def _read_frame(conn: socket.socket) -> dict:
-    """
-    Read input frame from the client.
-    :param conn: the client connection
-    :return: the parsed payload as a dict
-    :raises ValueError: if the frame is invalid
-    """
-    header = _read_socket(conn, 4)
-    (length,) = struct.unpack("!I", header)
-    if length < 1 or length > MAX_PAYLOAD:
-        raise ValueError("invalid frame length")
-
-    body = _read_socket(conn, length)
-    try:
-        payload = json.loads(body.decode("utf-8"))
-    except Exception as exc:
-        raise ValueError("invalid utf8/json") from exc
-
-    if not isinstance(payload, dict):
-        raise ValueError("payload must be object")
-    return payload
-
-
-def _validate_payload(payload: dict) -> AuthRequest:
-    """
-    Validate the payload of an incoming request.
-    :param payload: the payload to validate
-    :return: the validated payload as an AuthRequest object
-    :raises ValueError: if the payload is invalid
-    """
-
-    # validate header
-    if payload.get("v") != PROTO_VERSION:
-        raise ValueError("unsupported protocol version")
-    if payload.get("type") != "auth_request":
-        raise ValueError("invalid message type")
-
-    # Protocol v1 uses request_id; keep `id` as legacy fallback.
-    request_id = str(payload.get("request_id", payload.get("id", "")))
-    username = str(payload.get("username", ""))
-    service = str(payload.get("service", ""))
-    tty = str(payload.get("tty", ""))
-    rhost = str(payload.get("rhost", ""))
-    deadline_ms = int(payload.get("deadline_ms", DEFAULT_DEADLINE_MS))
-
-    # validate body content
-    if not (1 <= len(request_id) <= 64):
-        raise ValueError("invalid id")
-    if not (1 <= len(username) <= 64):
-        raise ValueError("invalid username")
-    if len(service) > 64 or len(tty) > 128 or len(rhost) > 256:
-        raise ValueError("invalid metadata lengths")
-    if not (100 <= deadline_ms <= 30000):
-        raise ValueError("invalid deadline_ms")
-
-    # return validated payload
-    return AuthRequest(
-        id=request_id,
-        username=username,
-        service=service,
-        tty=tty,
-        rhost=rhost,
-        deadline_ms=deadline_ms,
-    )
-
-
-def _write_frame(conn: socket.socket, payload: dict) -> None:
-    """
-    Send response to the client.
-    :param conn: the client connection
-    :param payload: the response payload
-    :return: None
-    """
-    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
-    if len(data) > MAX_PAYLOAD:
-        raise ValueError("response payload too large")
-    conn.sendall(struct.pack("!I", len(data)) + data)
-
-
 def _handle_client(conn: socket.socket, peer: str) -> None:
     """
     Handle an incoming client connection.
@@ -157,8 +46,8 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
     """
     try:
         # load & validate payload
-        payload = _read_frame(conn)
-        req = _validate_payload(payload)
+        payload = read_frame(conn)
+        req = validate_auth_request(payload)
 
         worker_timeout = max(0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0)
 
@@ -183,7 +72,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
             pool.shutdown(wait=False, cancel_futures=True)
 
         # send response
-        _write_frame(
+        write_frame(
             conn,
             {
                 "v": PROTO_VERSION,
@@ -196,7 +85,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
     # fail-closed connection
     except BaseException:
         try:
-            _write_frame(
+            write_frame(
                 conn,
                 {
                     "v": PROTO_VERSION,

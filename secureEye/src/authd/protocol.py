@@ -1,56 +1,123 @@
+"""Framing and validation for the authd IPC protocol (docs/auth-protocol-v1.md)."""
+
 import json
+import socket
 import struct
-from typing import Callable
+from dataclasses import dataclass
 
-MAX_FRAME = 64 * 1024
+PROTO_VERSION = 1
+MAX_PAYLOAD = 4096
+DEFAULT_DEADLINE_MS = 2500
 
 
-class ProtocolError(Exception):
+class ProtocolError(ValueError):
     pass
 
 
-def encode_frame(obj: dict) -> bytes:
-    """
-    Encode a dict as a framed JSON payload.
-    :param obj: the dict to encode
-    :return: encoded bytes
-    """
-    payload = json.dumps(obj, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
-    if len(payload) > MAX_FRAME:
-        raise ProtocolError("payload too large")
-    return struct.pack(">I", len(payload)) + payload
+@dataclass
+class AuthRequest:
+    id: str
+    username: str
+    service: str
+    tty: str
+    rhost: str
+    deadline_ms: int
 
 
-def decode_frame(read_exact: Callable[[int], bytes]) -> dict:
+def read_exact(conn: socket.socket, size: int) -> bytes:
     """
-    Decode a framed JSON payload.
-    :param read_exact:
-    :return: decoded dict
+    Read a fixed-size chunk from the client.
+    :param conn: the client connection
+    :param size: number of bytes to read
+    :return: the read bytes
+    :raises ConnectionError: if the peer closed the connection before sending all data
     """
-    # read_exact(n) must return exactly n bytes or raise
-    header = read_exact(4)
-    (size,) = struct.unpack(">I", header)
-    if size <= 0 or size > MAX_FRAME:
-        raise ProtocolError("invalid frame size")
-    payload = read_exact(size)
+    data = bytearray()
+    while len(data) < size:
+        chunk = conn.recv(size - len(data))
+        if not chunk:
+            raise ConnectionError("peer closed connection")
+        data.extend(chunk)
+    return bytes(data)
+
+
+def read_frame(conn: socket.socket) -> dict:
+    """
+    Read input frame from the client.
+    :param conn: the client connection
+    :return: the parsed payload as a dict
+    :raises ProtocolError: if the frame is invalid
+    """
+    header = read_exact(conn, 4)
+    (length,) = struct.unpack("!I", header)
+    if length < 1 or length > MAX_PAYLOAD:
+        raise ProtocolError("invalid frame length")
+
+    body = read_exact(conn, length)
     try:
-        obj = json.loads(payload.decode("utf-8"))
-    except Exception as e:
-        raise ProtocolError("invalid json") from e
-    return obj
+        payload = json.loads(body.decode("utf-8"))
+    except Exception as exc:
+        raise ProtocolError("invalid utf8/json") from exc
+
+    if not isinstance(payload, dict):
+        raise ProtocolError("payload must be object")
+    return payload
 
 
-def validate_auth_request(msg: dict) -> None:
+def write_frame(conn: socket.socket, payload: dict) -> None:
     """
-    Validate an auth_request message.
-    :param msg: message to validate
+    Send a framed payload to the client.
+    :param conn: the client connection
+    :param payload: the response payload
     :return: None
+    :raises ProtocolError: if the encoded payload exceeds MAX_PAYLOAD
     """
-    version = msg.get("v", msg.get("version"))
-    if version != 1:
-        raise ProtocolError("unsupported version")
-    if msg.get("type") != "auth_request":
-        raise ProtocolError("invalid type")
-    for k in ("request_id", "username"):
-        if not isinstance(msg.get(k), str) or not msg[k]:
-            raise ProtocolError(f"invalid {k}")
+    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    if len(data) > MAX_PAYLOAD:
+        raise ProtocolError("response payload too large")
+    conn.sendall(struct.pack("!I", len(data)) + data)
+
+
+def validate_auth_request(payload: dict) -> AuthRequest:
+    """
+    Validate the payload of an incoming auth request.
+    :param payload: the payload to validate
+    :return: the validated payload as an AuthRequest object
+    :raises ProtocolError: if the payload is invalid
+    """
+
+    # validate header
+    if payload.get("v") != PROTO_VERSION:
+        raise ProtocolError("unsupported protocol version")
+    if payload.get("type") != "auth_request":
+        raise ProtocolError("invalid message type")
+
+    # Protocol v1 uses request_id; keep `id` as legacy fallback.
+    request_id = str(payload.get("request_id", payload.get("id", "")))
+    username = str(payload.get("username", ""))
+    service = str(payload.get("service", ""))
+    tty = str(payload.get("tty", ""))
+    rhost = str(payload.get("rhost", ""))
+    try:
+        deadline_ms = int(payload.get("deadline_ms", DEFAULT_DEADLINE_MS))
+    except (TypeError, ValueError) as exc:
+        raise ProtocolError("invalid deadline_ms") from exc
+
+    # validate body content
+    if not (1 <= len(request_id) <= 64):
+        raise ProtocolError("invalid id")
+    if not (1 <= len(username) <= 64):
+        raise ProtocolError("invalid username")
+    if len(service) > 64 or len(tty) > 128 or len(rhost) > 256:
+        raise ProtocolError("invalid metadata lengths")
+    if not (100 <= deadline_ms <= 30000):
+        raise ProtocolError("invalid deadline_ms")
+
+    return AuthRequest(
+        id=request_id,
+        username=username,
+        service=service,
+        tty=tty,
+        rhost=rhost,
+        deadline_ms=deadline_ms,
+    )

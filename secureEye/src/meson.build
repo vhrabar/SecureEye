@@ -19,7 +19,6 @@ py_sources = [
     'authd/__init__.py',
     'authd/main.py',
     'authd/protocol.py',
-    'authd/server.py',
     'auth/__init__.py',
     'auth/detector_factory.py',
     'auth/errors.py',
