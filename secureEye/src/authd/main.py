@@ -5,6 +5,7 @@ import socket
 import sys
 import syslog
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 import paths_factory
@@ -17,6 +18,20 @@ INTERNAL_ERROR_CODE = 99
 
 # time between the daemon's own worker deadline and the client's transport deadline
 RESPONSE_MARGIN_MS = 700
+
+# a client must deliver its whole request frame within this window
+READ_TIMEOUT_S = 1.0
+WRITE_TIMEOUT_S = 1.0
+
+# concurrent connections; extra clients are closed immediately (PAM fails closed)
+MAX_CLIENTS = 8
+
+# how long shutdown waits for in-flight handlers before exiting
+SHUTDOWN_GRACE_S = 2.0
+
+# The camera can only be held by one session. It is released by the worker that ran the
+# session, not by the handler, so a timed-out session keeps it until it has really let go.
+_camera_lock = threading.Lock()
 
 
 def _prepare_socket(socket_path: str) -> socket.socket:
@@ -46,30 +61,14 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
     """
     try:
         # load & validate payload
-        payload = read_frame(conn)
+        payload = read_frame(conn, time.monotonic() + READ_TIMEOUT_S)
         req = validate_auth_request(payload)
+        conn.settimeout(WRITE_TIMEOUT_S)
 
-        worker_timeout = max(0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0)
-
-        # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
-        session = AuthSession()
-        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secureeye-auth")
-        try:
-            future = pool.submit(session.run, req.username)
-            try:
-                code = int(future.result(timeout=worker_timeout))
-            except FutureTimeoutError:
-                session.cancel()
-                future.cancel()
-                code = int(ExitCode.TIMEOUT_REACHED)
-            except BaseException as exc:
-                # Legacy code paths may call sys.exit(code); never let that kill authd.
-                if isinstance(exc, SystemExit) and isinstance(exc.code, int):
-                    code = int(exc.code)
-                else:
-                    code = INTERNAL_ERROR_CODE
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
+        worker_deadline = time.monotonic() + max(
+            0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0
+        )
+        code = _run_session(req.username, worker_deadline)
 
         # send response
         write_frame(
@@ -97,6 +96,91 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
             )
         except Exception:
             pass
+
+
+def _run_session(username: str, deadline: float) -> int:
+    """
+    Run one auth session while holding the camera, bounded by deadline.
+    :param username: the user to authenticate
+    :param deadline: time.monotonic() value by which a result code must be returned
+    :return: the session's exit code
+    """
+    if not _camera_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
+        return int(ExitCode.TIMEOUT_REACHED)
+
+    # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
+    session = AuthSession()
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secureeye-auth")
+    try:
+        future = pool.submit(session.run, username)
+    except BaseException:
+        _camera_lock.release()
+        pool.shutdown(wait=False)
+        raise
+    future.add_done_callback(lambda _future: _camera_lock.release())
+    try:
+        return int(future.result(timeout=max(0.0, deadline - time.monotonic())))
+    except FutureTimeoutError:
+        session.cancel()
+        future.cancel()
+        return int(ExitCode.TIMEOUT_REACHED)
+    except BaseException as exc:
+        # Legacy code paths may call sys.exit(code); never let that kill authd.
+        if isinstance(exc, SystemExit) and isinstance(exc.code, int):
+            return int(exc.code)
+        return INTERNAL_ERROR_CODE
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def _serve_client(conn: socket.socket, slots: threading.BoundedSemaphore) -> None:
+    """
+    Handle one connection on its own thread, then free its slot.
+    :param conn: the client connection
+    :param slots: semaphore bounding concurrent connections
+    :return: None
+    """
+    try:
+        with conn:
+            _handle_client(conn, "local")
+    finally:
+        slots.release()
+
+
+def serve(srv: socket.socket, stop: threading.Event) -> None:
+    """
+    Accept connections until stop is set, handling each on its own thread.
+    :param srv: a bound, listening socket
+    :param stop: event that ends the accept loop
+    :return: None
+    """
+    slots = threading.BoundedSemaphore(MAX_CLIENTS)
+    workers: set[threading.Thread] = set()
+    srv.settimeout(0.5)
+    try:
+        while not stop.is_set():
+            try:
+                conn, _ = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            if not slots.acquire(blocking=False):
+                conn.close()
+                continue
+            worker = threading.Thread(
+                target=_serve_client,
+                args=(conn, slots),
+                name="secureeye-client",
+                daemon=True,
+            )
+            worker.start()
+            workers = {w for w in workers if w.is_alive()}
+            workers.add(worker)
+    finally:
+        grace_end = time.monotonic() + SHUTDOWN_GRACE_S
+        for worker in workers:
+            worker.join(max(0.0, grace_end - time.monotonic()))
 
 
 def _warm_detector() -> None:
@@ -128,16 +212,7 @@ def main() -> int:
 
     # start listening
     try:
-        while not stop.is_set():
-            srv.settimeout(0.5)
-            try:
-                conn, _ = srv.accept()
-            except socket.timeout:
-                continue
-            except OSError:
-                break
-            with conn:
-                _handle_client(conn, "local")
+        serve(srv, stop)
     # handle failure (fc)
     finally:
         try:
