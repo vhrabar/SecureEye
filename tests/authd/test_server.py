@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 from auth import ExitCode  # noqa: E402
 from authd import main as authd_main  # noqa: E402
+from authd.camera import CameraArbiter  # noqa: E402
 from authd.protocol import read_frame, write_frame  # noqa: E402
 
 
@@ -49,7 +50,7 @@ def server(monkeypatch, tmp_path):
     FakeSession.active = 0
     FakeSession.max_active = 0
     monkeypatch.setattr(authd_main, "AuthSession", FakeSession)
-    monkeypatch.setattr(authd_main, "_camera_lock", threading.Lock())
+    monkeypatch.setattr(authd_main, "_camera", CameraArbiter())
     monkeypatch.setattr(authd_main, "READ_TIMEOUT_S", 0.3)
 
     path = str(tmp_path / "authd.sock")
