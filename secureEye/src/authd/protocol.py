@@ -3,6 +3,7 @@
 import json
 import socket
 import struct
+import time
 from dataclasses import dataclass
 
 PROTO_VERSION = 1
@@ -24,16 +25,24 @@ class AuthRequest:
     deadline_ms: int
 
 
-def read_exact(conn: socket.socket, size: int) -> bytes:
+def read_exact(conn: socket.socket, size: int, deadline: float | None = None) -> bytes:
     """
     Read a fixed-size chunk from the client.
     :param conn: the client connection
     :param size: number of bytes to read
+    :param deadline: optional time.monotonic() value by which all bytes must have arrived
     :return: the read bytes
     :raises ConnectionError: if the peer closed the connection before sending all data
+    :raises TimeoutError: if the deadline passes first
     """
     data = bytearray()
     while len(data) < size:
+        if deadline is not None:
+            # per-recv timeouts alone would let a client trickle one byte at a time forever
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("read deadline exceeded")
+            conn.settimeout(remaining)
         chunk = conn.recv(size - len(data))
         if not chunk:
             raise ConnectionError("peer closed connection")
@@ -41,19 +50,21 @@ def read_exact(conn: socket.socket, size: int) -> bytes:
     return bytes(data)
 
 
-def read_frame(conn: socket.socket) -> dict:
+def read_frame(conn: socket.socket, deadline: float | None = None) -> dict:
     """
     Read input frame from the client.
     :param conn: the client connection
+    :param deadline: optional time.monotonic() value by which the whole frame must have arrived
     :return: the parsed payload as a dict
     :raises ProtocolError: if the frame is invalid
+    :raises TimeoutError: if the deadline passes first
     """
-    header = read_exact(conn, 4)
+    header = read_exact(conn, 4, deadline)
     (length,) = struct.unpack("!I", header)
     if length < 1 or length > MAX_PAYLOAD:
         raise ProtocolError("invalid frame length")
 
-    body = read_exact(conn, length)
+    body = read_exact(conn, length, deadline)
     try:
         payload = json.loads(body.decode("utf-8"))
     except Exception as exc:
