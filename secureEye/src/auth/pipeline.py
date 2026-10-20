@@ -65,9 +65,16 @@ class Pipeline:
         :param detect_frame: the frame to detect in, e.g. a contrast-enhanced
             grayscale copy; defaults to ``frame``
         """
-        source = frame if detect_frame is None else detect_frame
-        for face in self.bundle.detector.detect(source):
+        for face in self.detect(frame if detect_frame is None else detect_frame):
             yield self.match(frame, face)
+
+    def detect(self, frame: Frame) -> list[Face]:
+        """
+        Detect faces without matching them, strongest detection first.
+
+        :param frame: the frame to detect in
+        """
+        return list(self.bundle.detector.detect(frame))
 
     def match(self, frame: Frame, face: Face) -> FaceMatch:
         """

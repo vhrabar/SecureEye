@@ -13,7 +13,8 @@ def darkness_percent(gsframe: NDArray[np.uint8]) -> tuple[float, float]:
     hist_total = float(np.sum(hist))
     if hist_total == 0.0:
         return 100.0, 0.0
-    darkness = float(hist[0] / hist_total * 100)
+    # calcHist returns shape (bins, 1); NumPy 2 refuses float() on the 1-element row
+    darkness = float(hist[0, 0] / hist_total * 100)
     return darkness, hist_total
 
 
