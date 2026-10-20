@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 import paths_factory
 from auth import ExitCode, AuthSession
 from auth.detector_factory import create_detector
+from authd.camera import CameraArbiter, CameraUse
 from authd.protocol import PROTO_VERSION, read_frame, validate_auth_request, write_frame
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
@@ -31,7 +32,7 @@ SHUTDOWN_GRACE_S = 2.0
 
 # The camera can only be held by one session. It is released by the worker that ran the
 # session, not by the handler, so a timed-out session keeps it until it has really let go.
-_camera_lock = threading.Lock()
+_camera = CameraArbiter()
 
 
 def _prepare_socket(socket_path: str) -> socket.socket:
@@ -105,19 +106,19 @@ def _run_session(username: str, deadline: float) -> int:
     :param deadline: time.monotonic() value by which a result code must be returned
     :return: the session's exit code
     """
-    if not _camera_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
+    session = AuthSession()
+    if not _camera.acquire(CameraUse.AUTH, session, deadline - time.monotonic()):
         return int(ExitCode.TIMEOUT_REACHED)
 
     # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
-    session = AuthSession()
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secureeye-auth")
     try:
         future = pool.submit(session.run, username)
     except BaseException:
-        _camera_lock.release()
+        _camera.release(session)
         pool.shutdown(wait=False)
         raise
-    future.add_done_callback(lambda _future: _camera_lock.release())
+    future.add_done_callback(lambda _future: _camera.release(session))
     try:
         return int(future.result(timeout=max(0.0, deadline - time.monotonic())))
     except FutureTimeoutError:
