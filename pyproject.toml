@@ -1,37 +1,76 @@
 [project]
 name = "SecureEye"
-version = "0.1.0"
+version = "0.2.1"
 description = "Modern facial authentication for Linux systems (PAM)."
 requires-python = ">=3.12"
 readme = "README.md"
-license = "GPL-2.0-only"
+license = "GPL-2.0-only AND MIT"
+license-files = ["LICENSE", "NOTICE", "licenses/*"]
 authors = [
 	{ name = "Vedran Hrabar", email = "vedran.hrabar@outlook.com" },
 ]
 
+keywords = ["pam", "face-recognition", "authentication", "biometrics", "linux", "security"]
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Environment :: Console",
+	"Environment :: X11 Applications :: Qt",
+	"Intended Audience :: System Administrators",
+	"Intended Audience :: End Users/Desktop",
+	"Operating System :: POSIX :: Linux",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Programming Language :: Python :: 3.14",
+	"Programming Language :: Python :: 3.15",
+	"Programming Language :: C++",
+	"Topic :: Security",
+	"Topic :: System :: Systems Administration :: Authentication/Directory",
+	"Topic :: Scientific/Engineering :: Image Recognition",
+	"Private :: Do Not Upload",
+]
+
 dependencies = [
 	"ffmpeg-python==0.2.0",
-	"keras==3.15.1",
 	"keyboard==0.13.5",
 	"mediapipe==1.1.1",
 	"numpy==2.5.4",
 	"opencv-contrib-python==5.0.0.93",
 ]
 
+[project.optional-dependencies]
+dlib = ["dlib==20.0.1"]
+pyv4l2 = ["pyv4l2==1.0.2"]
+
+[project.urls]
+Homepage = "https://github.com/vhrabar/SecureEye"
+Repository = "https://github.com/vhrabar/SecureEye.git"
+Issues = "https://github.com/vhrabar/SecureEye/issues"
+Changelog = "https://github.com/vhrabar/SecureEye/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/vhrabar/SecureEye/tree/main/docs"
+
 [tool.uv]
 package = false
+environments = [
+	"sys_platform == 'linux' and platform_machine == 'x86_64'",
+	"sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
+required-environments = [
+	"sys_platform == 'linux' and platform_machine == 'x86_64'",
+	"sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
 
 [dependency-groups]
 dev = [
 	"pytest==9.1.1",
 	"ruff==0.17.1",
 	"mypy==2.4.0",
-	"numpy==2.5.4",
 ]
 
 [tool.ruff]
 line-length = 100
-extend-exclude = ["build", "buildDir", "build-ppa", ".venv"]
+extend-exclude = ["build", "buildDir", "build-ppa", "obj-*", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "C", "B"]
@@ -44,11 +83,11 @@ mypy_path = ["secureEye/src"]
 namespace_packages = false
 
 ignore_missing_imports = true
-exclude = '(^|/)(build|buildDir|build-ppa|obj-x86_64-linux-gnu|\.venv)/'
+exclude = '(^|/)(build|buildDir|build-ppa|obj-[^/]+|\.venv)/'
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["build", "buildDir", "build-ppa", "obj-x86_64-linux-gnu", ".venv", ".git"]
+norecursedirs = ["build", "buildDir", "build-ppa", "obj-*", ".venv", ".git"]
 markers = [
 	"mediapipe_integration: tests that require the real mediapipe package",
 ]

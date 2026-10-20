@@ -107,16 +107,16 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Ruff
         run: uv run --no-sync ruff check .
 
-      - name: Black
-        run: uv run --no-sync black --check .
+      - name: Ruff format
+        run: uv run --no-sync ruff format --check .
 
       - name: Pytest
-        run: uv run pytest tests/ -v
+        run: uv run --no-sync pytest tests/ -v
 
   verify-deb:
     name: Verify deb (${{ matrix.name }})

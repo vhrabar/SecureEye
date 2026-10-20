@@ -30,10 +30,10 @@ jobs:
             uv.lock
             pyproject.toml
 
-      # dev tools only (ruff/mypy/pytest/numpy); the runtime deps
-      # (mediapipe, keras, opencv) are not needed to lint and cost ~500 MB
+      # dev tools only (ruff/mypy/pytest); the runtime deps
+      # (mediapipe, opencv) are not needed to lint and cost ~500 MB
       - name: Install dev dependencies
-        run: uv sync --only-dev
+        run: uv sync --locked --only-dev
 
       # run formatters and linters
       - name: Ruff format

@@ -63,6 +63,9 @@ jobs:
           echo "Notes found under [Unreleased]:"
           scripts/changelog-section.sh Unreleased
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Patch versions and date the changelog section
         env:
           VERSION: ${{ inputs.version }}

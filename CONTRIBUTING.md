@@ -36,7 +36,7 @@ source .venv/bin/activate
 
 * Python: Follow PEP8
 * Python: Use type hints where appropriate
-* Python: Format code using `black`
+* Python: Format code using `ruff format`
 * Python: Lint using `ruff`
 * C++: Use C++20+, prefer standard library features
 * C++: 4-space indentation, max 100 characters per line
