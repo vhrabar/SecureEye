@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 import paths_factory
 from auth import ExitCode, AuthSession
-from auth.detector_factory import create_detector
+from auth.detector_factory import create_pipeline
 from authd.camera import CameraArbiter, CameraUse
 from authd.protocol import PROTO_VERSION, read_frame, validate_auth_request, write_frame
 
@@ -191,7 +191,7 @@ def _warm_detector() -> None:
     try:
         config = configparser.ConfigParser()
         config.read(paths_factory.config_file_path())
-        create_detector(config)
+        create_pipeline(config)
     except Exception as exc:
         syslog.syslog(
             syslog.LOG_WARNING,

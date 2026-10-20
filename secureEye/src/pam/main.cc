@@ -242,6 +242,7 @@ auto read_authd_response_code(const std::string& payload, const std::string& req
     case CompareError::TOO_DARK:
     case CompareError::INVALID_DEVICE:
     case CompareError::RUBBERSTAMP:
+    case CompareError::TEMPLATE_MODEL_MISMATCH:
     case AUTHD_INTERNAL_ERROR:
         return true;
     default:
@@ -331,6 +332,13 @@ auto secureEye_error(int status, const std::function<int(int, const char*)>& con
         break;
     case CompareError::RUBBERSTAMP:
         syslog(LOG_ERR, "Failure, rubberstamp verification failed");
+        break;
+    case CompareError::TEMPLATE_MODEL_MISMATCH:
+        // Silent failure here would be indistinguishable from "face not
+        // recognised", and no amount of retrying fixes it, so always tell the user.
+        conv_function(PAM_ERROR_MSG, S("Face models were made with a different recognizer, run "
+                                       "'secureEye re-enroll'"));
+        syslog(LOG_ERR, "Failure, face models belong to another recognizer");
         break;
     case AUTHD_INTERNAL_ERROR:
         syslog(LOG_ERR, "Failure, authd transport/protocol/internal error");
