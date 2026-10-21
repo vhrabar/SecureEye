@@ -13,8 +13,9 @@ def darkness_percent(gsframe: NDArray[np.uint8]) -> tuple[float, float]:
     hist_total = float(np.sum(hist))
     if hist_total == 0.0:
         return 100.0, 0.0
-    # calcHist returns shape (bins, 1); NumPy 2 refuses float() on the 1-element row
-    darkness = float(hist[0, 0] / hist_total * 100)
+    # calcHist returns (bins, 1) before OpenCV 5 and (bins,) from 5 on; NumPy 2 refuses
+    # float() on a 1-element row, so take the first bin either way
+    darkness = float(hist.ravel()[0] / hist_total * 100)
     return darkness, hist_total
 
 
