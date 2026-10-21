@@ -1,7 +1,9 @@
 import configparser
 import os
+import pwd
 import signal
 import socket
+import struct
 import sys
 import syslog
 import threading
@@ -48,23 +50,69 @@ def _prepare_socket(socket_path: str) -> socket.socket:
         pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(socket_path)
-    os.chmod(socket_path, 0o660)
+    # anyone may connect: screen lockers run PAM as the user, not as root. What a
+    # client may ask for is checked per request against its SO_PEERCRED uid.
+    os.chmod(socket_path, 0o666)
     sock.listen(64)
     return sock
 
 
-def _handle_client(conn: socket.socket, peer: str) -> None:
+def _peer_uid(conn: socket.socket) -> int:
+    """
+    Return the uid of the process on the other end of a unix socket.
+    :param conn: the client connection
+    :return: the uid the kernel recorded when the client connected
+    """
+    creds = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+    _pid, uid, _gid = struct.unpack("3i", creds)
+    return uid
+
+
+def _may_authenticate(peer_uid: int, username: str) -> bool:
+    """
+    Root may authenticate anyone; everyone else only themselves.
+    :param peer_uid: the client's uid
+    :param username: the user the client wants authenticated
+    :return: whether the request is allowed
+    """
+    if peer_uid == 0:
+        return True
+    try:
+        return pwd.getpwnam(username).pw_uid == peer_uid
+    except KeyError:
+        return False
+
+
+def _handle_client(conn: socket.socket) -> None:
     """
     Handle an incoming client connection.
     :param conn: the client connection
-    :param peer: the peer address
     :return: None
     """
     try:
+        peer_uid = _peer_uid(conn)
+
         # load & validate payload
         payload = read_frame(conn, time.monotonic() + READ_TIMEOUT_S)
         req = validate_auth_request(payload)
         conn.settimeout(WRITE_TIMEOUT_S)
+
+        if not _may_authenticate(peer_uid, req.username):
+            syslog.syslog(
+                syslog.LOG_WARNING,
+                f"secureeye-authd: uid {peer_uid} may not authenticate {req.username!r}",
+            )
+            write_frame(
+                conn,
+                {
+                    "v": PROTO_VERSION,
+                    "type": "auth_response",
+                    "request_id": req.id,
+                    "result_code": INTERNAL_ERROR_CODE,
+                    "detail": "forbidden",
+                },
+            )
+            return
 
         worker_deadline = time.monotonic() + max(
             0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0
@@ -143,7 +191,7 @@ def _serve_client(conn: socket.socket, slots: threading.BoundedSemaphore) -> Non
     """
     try:
         with conn:
-            _handle_client(conn, "local")
+            _handle_client(conn)
     finally:
         slots.release()
 

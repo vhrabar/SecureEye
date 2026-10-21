@@ -436,6 +436,11 @@ def _write_json(path: Path, payload: Any) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(tmp_path, _FILE_MODE)
+        # root (the CLI) must not take the file away from the daemon user that owns the
+        # directory, or authd can no longer read it
+        if os.geteuid() == 0:
+            parent = os.stat(path.parent)
+            os.chown(tmp_path, parent.st_uid, parent.st_gid)
         os.replace(tmp_path, path)
     except BaseException:
         tmp_path.unlink(missing_ok=True)

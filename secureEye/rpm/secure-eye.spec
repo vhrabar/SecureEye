@@ -108,7 +108,7 @@ DESTDIR=%{buildroot} meson install -C %{_vpath_builddir}
 rm -rf %{buildroot}%{_datadir}/dlib-data
 
 # User models directory (user_models_dir).
-install -d -m 0755 %{buildroot}%{_sysconfdir}/secureEye/models
+install -d -m 0700 %{buildroot}%{_sysconfdir}/secureEye/models
 
 # sysusers fragment.
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
@@ -117,6 +117,7 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 %sysusers_create_compat %{SOURCE1}
 
 %post
+%tmpfiles_create secure-eye.conf
 %systemd_post secureeye-authd.service
 
 %preun
@@ -132,6 +133,7 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 %{_libdir}/security/pam_secureEye.so
 %{_libdir}/secureEye/
 %{_unitdir}/secureeye-authd.service
+%{_tmpfilesdir}/secure-eye.conf
 %{_sysusersdir}/secure-eye.conf
 %{_datadir}/bash-completion/completions/secureEye
 %{_datadir}/polkit-1/actions/com.github.vhrabar.secureeye.policy
@@ -140,7 +142,7 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 %{_mandir}/man1/SecureEye.1*
 %dir %{_sysconfdir}/secureEye
 %config(noreplace) %{_sysconfdir}/secureEye/config.ini
-%dir %{_sysconfdir}/secureEye/models
+%dir %attr(0700,secureeye,secureeye) %{_sysconfdir}/secureEye/models
 
 %changelog
 * Wed Aug 19 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.2.1-1

@@ -338,6 +338,27 @@ class TestWriting:
 
         assert mode == 0o600
 
+    def test_root_writes_hand_the_file_to_the_directory_owner(self, store, monkeypatch):
+        """sudo secureEye add must leave the model readable by the secureeye daemon user."""
+        chowned = []
+        monkeypatch.setattr(template_store.os, "geteuid", lambda: 0)
+        monkeypatch.setattr(
+            template_store.os, "chown", lambda path, uid, gid: chowned.append((uid, gid))
+        )
+
+        template_store.append("ada", model_id=SFACE, label="x", embeddings=np.zeros(128) + 0.1)
+
+        parent = os.stat(store)
+        assert chowned == [(parent.st_uid, parent.st_gid)]
+
+    def test_unprivileged_writes_do_not_chown(self, store, monkeypatch):
+        monkeypatch.setattr(template_store.os, "geteuid", lambda: 1000)
+        monkeypatch.setattr(
+            template_store.os, "chown", lambda *args: pytest.fail("chown as non-root")
+        )
+
+        template_store.append("ada", model_id=SFACE, label="x", embeddings=np.zeros(128) + 0.1)
+
     def test_failed_write_leaves_the_old_file_intact(self, store, monkeypatch):
         template_store.append("ada", model_id=SFACE, label="keep", embeddings=np.zeros(128) + 0.1)
         original = (store / "ada.dat").read_bytes()

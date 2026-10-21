@@ -67,7 +67,7 @@ package() {
 	meson install -C build --destdir "$pkgdir" \
 		--tags pam_module,bin,py_sources,config,systemd,bash_completion,polkit,meta,man
 
-	install -dm755 "$pkgdir/etc/secureEye/models"
+	install -dm700 "$pkgdir/etc/secureEye/models"
 	install -Dm644 "$_srcname/secureEye/rpm/secure-eye.sysusers" \
 		"$pkgdir/usr/lib/sysusers.d/secure-eye.conf"
 

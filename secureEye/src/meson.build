@@ -171,6 +171,28 @@ install_data(
     install_tag : 'systemd',
 )
 
+systemd_tmpfiles_dir = join_paths(get_option('prefix'), 'lib', 'tmpfiles.d')
+if systemd.found()
+    systemd_tmpfiles_dir = systemd.get_variable(
+        pkgconfig : 'tmpfilesdir',
+        default_value : systemd_tmpfiles_dir,
+    )
+endif
+
+authd_tmpfiles = configure_file(
+    input : 'systemd/secureeye-tmpfiles.conf.in',
+    output : 'secure-eye.conf',
+    configuration : configuration_data({
+                                           'user_models_dir' : paths_dict.get('user_models_dir'),
+                                       }),
+)
+install_data(
+    authd_tmpfiles,
+    install_dir : systemd_tmpfiles_dir,
+    install_mode : 'rw-r--r--',
+    install_tag : 'systemd',
+)
+
 # if get_option('fetch_dlib_data')
 #     downloader = find_program('wget')
 #     bunzip2 = find_program('bunzip2')
