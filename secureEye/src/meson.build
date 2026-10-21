@@ -17,12 +17,15 @@ py_paths = configure_file(
 
 py_sources = [
     'authd/__init__.py',
+    'authd/access.py',
     'authd/camera.py',
     'authd/main.py',
+    'authd/manage.py',
     'authd/protocol.py',
     'auth/__init__.py',
     'auth/capture.py',
     'auth/enrollment.py',
+    'auth/recognition_probe.py',
     'auth/detector_factory.py',
     'auth/errors.py',
     'auth/frame_ops.py',

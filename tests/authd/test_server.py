@@ -15,6 +15,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from auth import ExitCode  # noqa: E402
+from authd import access  # noqa: E402
 from authd import main as authd_main  # noqa: E402
 from authd.camera import CameraArbiter  # noqa: E402
 from authd.protocol import read_frame, write_frame  # noqa: E402
@@ -202,14 +203,14 @@ def test_user_authenticates_themselves(server):
 
 
 def test_root_may_authenticate_anyone():
-    assert authd_main._may_authenticate(0, "nobody-by-this-name")
+    assert access.may_act_for(0, "nobody-by-this-name")
 
 
 def test_unknown_user_is_refused():
-    assert not authd_main._may_authenticate(1000, "nobody-by-this-name")
+    assert not access.may_act_for(1000, "nobody-by-this-name")
 
 
 def test_peer_uid_is_the_connecting_process():
     left, right = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
     with left, right:
-        assert authd_main._peer_uid(left) == os.getuid()
+        assert access.peer_uid(left) == os.getuid()

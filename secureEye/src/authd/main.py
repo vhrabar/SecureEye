@@ -1,9 +1,7 @@
 import configparser
 import os
-import pwd
 import signal
 import socket
-import struct
 import sys
 import syslog
 import threading
@@ -13,8 +11,16 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 import paths_factory
 from auth import ExitCode, AuthSession
 from auth.detector_factory import create_pipeline
+from authd import manage
+from authd.access import may_act_for, peer_uid
 from authd.camera import CameraArbiter, CameraUse
-from authd.protocol import PROTO_VERSION, read_frame, validate_auth_request, write_frame
+from authd.protocol import (
+    MANAGE_VERSION,
+    PROTO_VERSION,
+    read_frame,
+    validate_auth_request,
+    write_frame,
+)
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
 INTERNAL_ERROR_CODE = 99
@@ -57,32 +63,6 @@ def _prepare_socket(socket_path: str) -> socket.socket:
     return sock
 
 
-def _peer_uid(conn: socket.socket) -> int:
-    """
-    Return the uid of the process on the other end of a unix socket.
-    :param conn: the client connection
-    :return: the uid the kernel recorded when the client connected
-    """
-    creds = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
-    _pid, uid, _gid = struct.unpack("3i", creds)
-    return uid
-
-
-def _may_authenticate(peer_uid: int, username: str) -> bool:
-    """
-    Root may authenticate anyone; everyone else only themselves.
-    :param peer_uid: the client's uid
-    :param username: the user the client wants authenticated
-    :return: whether the request is allowed
-    """
-    if peer_uid == 0:
-        return True
-    try:
-        return pwd.getpwnam(username).pw_uid == peer_uid
-    except KeyError:
-        return False
-
-
 def _handle_client(conn: socket.socket) -> None:
     """
     Handle an incoming client connection.
@@ -90,17 +70,20 @@ def _handle_client(conn: socket.socket) -> None:
     :return: None
     """
     try:
-        peer_uid = _peer_uid(conn)
+        uid = peer_uid(conn)
 
         # load & validate payload
         payload = read_frame(conn, time.monotonic() + READ_TIMEOUT_S)
-        req = validate_auth_request(payload)
         conn.settimeout(WRITE_TIMEOUT_S)
+        if payload.get("v") == MANAGE_VERSION:
+            manage.handle(conn, uid, payload, _camera)
+            return
+        req = validate_auth_request(payload)
 
-        if not _may_authenticate(peer_uid, req.username):
+        if not may_act_for(uid, req.username):
             syslog.syslog(
                 syslog.LOG_WARNING,
-                f"secureeye-authd: uid {peer_uid} may not authenticate {req.username!r}",
+                f"secureeye-authd: uid {uid} may not authenticate {req.username!r}",
             )
             write_frame(
                 conn,
