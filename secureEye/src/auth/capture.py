@@ -106,9 +106,21 @@ class FrameStream:
     at most once.
     """
 
-    def __init__(self, config, capture_factory: Callable[[Any], Any] = VideoCapture) -> None:
+    def __init__(
+        self,
+        config,
+        capture_factory: Callable[[Any], Any] = VideoCapture,
+        transform: bool = True,
+    ) -> None:
+        """
+        :param config: the parsed config.ini
+        :param capture_factory: builds the camera reader; tests pass a fake
+        :param transform: scale and rotate usable frames as configured; enrollment turns this
+            off and works on the native frame
+        """
         self.dark_threshold = config.getfloat("video", "dark_threshold", fallback=60.0)
         self._rotate = config.getint("video", "rotate", fallback=0)
+        self._transform = transform
         self._index = 0
         self._lock = threading.Lock()
         self._released = False
@@ -136,8 +148,10 @@ class FrameStream:
         if darkness > self.dark_threshold:
             return CapturedFrame(self._index, raw, raw, gsframe, darkness, FrameState.DARK)
 
-        frame, gsframe = maybe_scale(raw, gsframe, self._scaling_factor)
-        frame, gsframe = apply_rotation_mode(frame, gsframe, self._rotate, self._index)
+        frame = raw
+        if self._transform:
+            frame, gsframe = maybe_scale(frame, gsframe, self._scaling_factor)
+            frame, gsframe = apply_rotation_mode(frame, gsframe, self._rotate, self._index)
         return CapturedFrame(self._index, raw, frame, gsframe, darkness, None)
 
     def release(self) -> None:

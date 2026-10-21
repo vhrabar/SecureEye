@@ -22,6 +22,7 @@ py_sources = [
     'authd/protocol.py',
     'auth/__init__.py',
     'auth/capture.py',
+    'auth/enrollment.py',
     'auth/detector_factory.py',
     'auth/errors.py',
     'auth/frame_ops.py',
