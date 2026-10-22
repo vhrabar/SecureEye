@@ -11,8 +11,16 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 import paths_factory
 from auth import ExitCode, AuthSession
 from auth.detector_factory import create_pipeline
+from authd import manage
+from authd.access import may_act_for, peer_uid
 from authd.camera import CameraArbiter, CameraUse
-from authd.protocol import PROTO_VERSION, read_frame, validate_auth_request, write_frame
+from authd.protocol import (
+    MANAGE_VERSION,
+    PROTO_VERSION,
+    read_frame,
+    validate_auth_request,
+    write_frame,
+)
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
 INTERNAL_ERROR_CODE = 99
@@ -48,23 +56,46 @@ def _prepare_socket(socket_path: str) -> socket.socket:
         pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(socket_path)
-    os.chmod(socket_path, 0o660)
+    # anyone may connect: screen lockers run PAM as the user, not as root. What a
+    # client may ask for is checked per request against its SO_PEERCRED uid.
+    os.chmod(socket_path, 0o666)
     sock.listen(64)
     return sock
 
 
-def _handle_client(conn: socket.socket, peer: str) -> None:
+def _handle_client(conn: socket.socket) -> None:
     """
     Handle an incoming client connection.
     :param conn: the client connection
-    :param peer: the peer address
     :return: None
     """
     try:
+        uid = peer_uid(conn)
+
         # load & validate payload
         payload = read_frame(conn, time.monotonic() + READ_TIMEOUT_S)
-        req = validate_auth_request(payload)
         conn.settimeout(WRITE_TIMEOUT_S)
+        if payload.get("v") == MANAGE_VERSION:
+            manage.handle(conn, uid, payload, _camera)
+            return
+        req = validate_auth_request(payload)
+
+        if not may_act_for(uid, req.username):
+            syslog.syslog(
+                syslog.LOG_WARNING,
+                f"secureeye-authd: uid {uid} may not authenticate {req.username!r}",
+            )
+            write_frame(
+                conn,
+                {
+                    "v": PROTO_VERSION,
+                    "type": "auth_response",
+                    "request_id": req.id,
+                    "result_code": INTERNAL_ERROR_CODE,
+                    "detail": "forbidden",
+                },
+            )
+            return
 
         worker_deadline = time.monotonic() + max(
             0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0
@@ -143,7 +174,7 @@ def _serve_client(conn: socket.socket, slots: threading.BoundedSemaphore) -> Non
     """
     try:
         with conn:
-            _handle_client(conn, "local")
+            _handle_client(conn)
     finally:
         slots.release()
 

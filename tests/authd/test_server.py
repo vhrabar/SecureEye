@@ -1,4 +1,7 @@
+import os
+import pwd
 import socket
+import stat
 import struct
 import sys
 import threading
@@ -12,9 +15,13 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from auth import ExitCode  # noqa: E402
+from authd import access  # noqa: E402
 from authd import main as authd_main  # noqa: E402
 from authd.camera import CameraArbiter  # noqa: E402
 from authd.protocol import read_frame, write_frame  # noqa: E402
+
+
+ME = pwd.getpwuid(os.getuid()).pw_name
 
 
 class FakeSession:
@@ -29,6 +36,7 @@ class FakeSession:
         self.cancelled = threading.Event()
 
     def run(self, user):
+        FakeSession.runs.append(user)
         with FakeSession.lock:
             FakeSession.active += 1
             FakeSession.max_active = max(FakeSession.max_active, FakeSession.active)
@@ -49,6 +57,7 @@ def server(monkeypatch, tmp_path):
     FakeSession.hold_s = 0.0
     FakeSession.active = 0
     FakeSession.max_active = 0
+    FakeSession.runs = []
     monkeypatch.setattr(authd_main, "AuthSession", FakeSession)
     monkeypatch.setattr(authd_main, "_camera", CameraArbiter())
     monkeypatch.setattr(authd_main, "READ_TIMEOUT_S", 0.3)
@@ -71,7 +80,7 @@ def _connect(path: str) -> socket.socket:
     return sock
 
 
-def _auth(path: str, deadline_ms: int = 2500) -> dict:
+def _auth(path: str, deadline_ms: int = 2500, username: str = ME) -> dict:
     with _connect(path) as sock:
         write_frame(
             sock,
@@ -79,7 +88,7 @@ def _auth(path: str, deadline_ms: int = 2500) -> dict:
                 "v": 1,
                 "type": "auth_request",
                 "request_id": "r1",
-                "username": "alice",
+                "username": username,
                 "deadline_ms": deadline_ms,
             },
         )
@@ -173,3 +182,35 @@ def test_timed_out_session_keeps_camera_until_it_finishes(server):
     # the timed-out worker is still running; the next session must wait for it, not overlap
     assert _auth(server)["result_code"] == 0
     assert FakeSession.max_active == 1
+
+
+def test_socket_is_open_to_every_user(server):
+    assert stat.S_IMODE(os.stat(server).st_mode) == 0o666
+
+
+@pytest.mark.skipif(os.getuid() == 0, reason="root may authenticate anyone")
+def test_user_cannot_authenticate_someone_else(server):
+    resp = _auth(server, username="root")
+    assert resp["result_code"] == authd_main.INTERNAL_ERROR_CODE
+    assert resp["detail"] == "forbidden"
+    assert resp["request_id"] == "r1"
+    assert FakeSession.runs == []
+
+
+def test_user_authenticates_themselves(server):
+    assert _auth(server)["result_code"] == 0
+    assert FakeSession.runs == [ME]
+
+
+def test_root_may_authenticate_anyone():
+    assert access.may_act_for(0, "nobody-by-this-name")
+
+
+def test_unknown_user_is_refused():
+    assert not access.may_act_for(1000, "nobody-by-this-name")
+
+
+def test_peer_uid_is_the_connecting_process():
+    left, right = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+    with left, right:
+        assert access.peer_uid(left) == os.getuid()

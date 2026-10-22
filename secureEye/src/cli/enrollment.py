@@ -1,19 +1,13 @@
 import builtins
 import os
 import sys
-import time
-
-import numpy as np
 
 import paths_factory
 from auth import template_store
 from auth.detector_factory import DetectorFactoryError, PipelineBundle, create_pipeline
+from auth.enrollment import EnrollResult, EnrollSession
 from auth.interfaces import Embedding
 from i18n import _
-from recorders.video_capture import VideoCapture
-
-# Frames to look at before giving up
-MAX_FRAMES = 60
 
 # Labels are stored in a comma-separated listing, and kept short for it
 MAX_LABEL_LENGTH = 24
@@ -92,92 +86,27 @@ def capture_embedding(config, bundle: PipelineBundle) -> Embedding:
 
     Exits with an explanation when no usable face turns up.
     """
-    # OpenCV has to be imported after dlib / mediapipe, so keep it in here
-    import cv2
-
-    video_capture = VideoCapture(config)
-
     print(_("\nPlease look straight into the camera"))
 
     # Give the user time to read
-    time.sleep(2)
+    outcome = EnrollSession(config, bundle).capture(settle_s=2)
 
-    # Count the number of read frames
-    frames = 0
-    # Count the number of illuminated read frames
-    valid_frames = 0
-    # Count the number of illuminated frames that
-    # were rejected for being too dark
-    dark_tries = 0
-    # Track the running darkness total
-    dark_running_total = 0
-    faces = None
-    frame = None
+    if outcome.result is EnrollResult.SUCCESS:
+        assert outcome.embedding is not None
+        return outcome.embedding
 
-    dark_threshold = config.getfloat("video", "dark_threshold", fallback=60)
-
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-
-    # Loop through frames till we hit a timeout
-    while frames < MAX_FRAMES:
-        frames += 1
-        # Grab a single frame of video
-        frame, gsframe = video_capture.read_frame()
-        gsframe = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gsframe = clahe.apply(gsframe)
-
-        # Create a histogram of the image with 8 values
-        hist = cv2.calcHist([gsframe], [0], None, [8], [0, 256])
-        # All values combined for percentage calculation
-        hist_total = np.sum(hist)
-
-        # Calculate frame darkness
-        darkness = hist[0] / hist_total * 100
-
-        # If the image is fully black due to a bad camera read,
-        # skip to the next frame
-        if (hist_total == 0) or (darkness == 100):
-            continue
-
-        # Include this frame in calculating our average session brightness
-        dark_running_total += darkness
-        valid_frames += 1
-
-        # If the image exceeds darkness threshold due to subject distance,
-        # skip to the next frame
-        if darkness > dark_threshold:
-            dark_tries += 1
-            continue
-
-        # Get all faces from that frame
-        faces = bundle.detector.detect(gsframe)
-
-        # If we've found at least one, we can continue
-        if faces:
-            break
-
-    video_capture.release()
-
-    # If we've found no faces, try to determine why
-    if not faces:
-        if valid_frames == 0:
-            print(_("Camera saw only black frames - is IR emitter working?"))
-        elif valid_frames == dark_tries:
-            print(_("All frames were too dark, please check dark_threshold in config"))
-            print(
-                _("Average darkness: {avg}, Threshold: {threshold}").format(
-                    avg=str(dark_running_total / valid_frames), threshold=str(dark_threshold)
-                )
+    if outcome.result is EnrollResult.BLACK_FRAMES:
+        print(_("Camera saw only black frames - is IR emitter working?"))
+    elif outcome.result is EnrollResult.TOO_DARK:
+        print(_("All frames were too dark, please check dark_threshold in config"))
+        print(
+            _("Average darkness: {avg}, Threshold: {threshold}").format(
+                avg=str(outcome.avg_darkness),
+                threshold=str(config.getfloat("video", "dark_threshold", fallback=60)),
             )
-        else:
-            print(_("No face detected, aborting"))
-        sys.exit(1)
-
-    # If more than 1 faces are detected we can't know which one belongs to the user
-    if len(faces) > 1:
+        )
+    elif outcome.result is EnrollResult.MULTIPLE_FACES:
         print(_("Multiple faces detected, aborting"))
-        sys.exit(1)
-
-    # Faces were found, so a frame was read
-    assert frame is not None
-    return bundle.recognizer.embed(frame, faces[0])
+    else:
+        print(_("No face detected, aborting"))
+    sys.exit(1)

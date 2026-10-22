@@ -2,6 +2,7 @@ usr/bin/secureEye
 usr/lib/*/security/pam_secureEye.so
 usr/lib/*/secureEye
 usr/lib/systemd/system/secureeye-authd.service
+usr/lib/tmpfiles.d/secure-eye.conf
 usr/share/bash-completion/completions/secureEye
 usr/share/polkit-1/actions/com.github.vhrabar.secureeye.policy
 usr/share/man/man1/SecureEye.1

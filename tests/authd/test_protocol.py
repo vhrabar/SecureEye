@@ -11,10 +11,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from authd.protocol import (  # noqa: E402
+    MAX_EVENT_PAYLOAD,
     MAX_PAYLOAD,
     ProtocolError,
     read_frame,
     validate_auth_request,
+    validate_manage_request,
     write_frame,
 )
 
@@ -151,3 +153,64 @@ def test_validate_accepts_legacy_id_and_default_deadline():
 def test_validate_rejects(overrides, message):
     with pytest.raises(ProtocolError, match=message):
         validate_auth_request(_request(**overrides))
+
+
+def test_write_frame_allows_bigger_events_when_asked(pair):
+    a, b = pair
+    payload = {"x": "y" * (MAX_PAYLOAD * 2)}
+    write_frame(a, payload, max_payload=MAX_EVENT_PAYLOAD)
+    b.settimeout(1.0)
+    header = b.recv(4)
+    assert struct.unpack("!I", header)[0] > MAX_PAYLOAD
+
+
+# v2 management requests
+
+
+def _manage(**overrides):
+    payload = {"v": 2, "type": "models_list", "request_id": "r1", "username": "alice"}
+    payload.update(overrides)
+    return payload
+
+
+def test_manage_defaults():
+    req = validate_manage_request(_manage(type="test"))
+    assert (req.type, req.username, req.preview, req.duration_ms) == ("test", "alice", False, 15000)
+
+
+def test_manage_enroll_fields():
+    req = validate_manage_request(_manage(type="enroll", label="desk", replace=True, preview=True))
+    assert (req.label, req.replace, req.preview) == ("desk", True, True)
+
+
+def test_manage_remove_takes_a_model_id():
+    assert validate_manage_request(_manage(type="models_remove", model=3)).model == 3
+
+
+@pytest.mark.parametrize(
+    "overrides, message",
+    [
+        ({"v": 1}, "unsupported protocol version"),
+        ({"type": "auth_request"}, "invalid message type"),
+        ({"type": "cancel"}, "invalid message type"),
+        ({"request_id": ""}, "invalid request_id"),
+        ({"request_id": 5}, "invalid request_id"),
+        ({"username": "u" * 65}, "invalid username"),
+        ({"username": None}, "invalid username"),
+        ({"type": "models_remove"}, "invalid model"),
+        ({"type": "models_remove", "model": -1}, "invalid model"),
+        ({"type": "models_remove", "model": "0"}, "invalid model"),
+        ({"type": "models_remove", "model": True}, "invalid model"),
+        ({"type": "enroll"}, "invalid label"),
+        ({"type": "enroll", "label": ""}, "invalid label"),
+        ({"type": "enroll", "label": "l" * 65}, "invalid label"),
+        ({"type": "enroll", "label": "x", "replace": "yes"}, "invalid replace"),
+        ({"type": "test", "preview": 1}, "invalid preview"),
+        ({"type": "test", "duration_ms": 999}, "invalid duration_ms"),
+        ({"type": "test", "duration_ms": 60001}, "invalid duration_ms"),
+        ({"type": "test", "duration_ms": 1.5}, "invalid duration_ms"),
+    ],
+)
+def test_manage_rejects(overrides, message):
+    with pytest.raises(ProtocolError, match=message):
+        validate_manage_request(_manage(**overrides))

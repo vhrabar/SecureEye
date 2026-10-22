@@ -1,4 +1,4 @@
-"""Framing and validation for the authd IPC protocol (docs/auth-protocol-v1.md)."""
+"""Framing and validation for the authd IPC protocol (docs/auth-protocol-v1.md, -v2.md)."""
 
 import json
 import socket
@@ -9,6 +9,13 @@ from dataclasses import dataclass
 PROTO_VERSION = 1
 MAX_PAYLOAD = 4096
 DEFAULT_DEADLINE_MS = 2500
+
+# v2: management requests from the GUI
+MANAGE_VERSION = 2
+# frame events carry a JPEG preview, so the daemon may send bigger frames than it accepts
+MAX_EVENT_PAYLOAD = 64 * 1024
+MANAGE_TYPES = frozenset({"models_list", "models_remove", "models_clear", "enroll", "test"})
+DEFAULT_TEST_DURATION_MS = 15000
 
 
 class ProtocolError(ValueError):
@@ -75,16 +82,17 @@ def read_frame(conn: socket.socket, deadline: float | None = None) -> dict:
     return payload
 
 
-def write_frame(conn: socket.socket, payload: dict) -> None:
+def write_frame(conn: socket.socket, payload: dict, max_payload: int = MAX_PAYLOAD) -> None:
     """
     Send a framed payload to the client.
     :param conn: the client connection
     :param payload: the response payload
+    :param max_payload: largest encoded payload allowed
     :return: None
-    :raises ProtocolError: if the encoded payload exceeds MAX_PAYLOAD
+    :raises ProtocolError: if the encoded payload exceeds max_payload
     """
     data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
-    if len(data) > MAX_PAYLOAD:
+    if len(data) > max_payload:
         raise ProtocolError("response payload too large")
     conn.sendall(struct.pack("!I", len(data)) + data)
 
@@ -132,3 +140,78 @@ def validate_auth_request(payload: dict) -> AuthRequest:
         rhost=rhost,
         deadline_ms=deadline_ms,
     )
+
+
+@dataclass
+class ManageRequest:
+    id: str
+    type: str
+    username: str
+    # models_remove
+    model: int | None = None
+    # enroll
+    label: str = ""
+    replace: bool = False
+    # enroll, test
+    preview: bool = False
+    # test
+    duration_ms: int = DEFAULT_TEST_DURATION_MS
+
+
+def validate_manage_request(payload: dict) -> ManageRequest:  # noqa: C901
+    """
+    Validate the payload of an incoming v2 management request.
+    :param payload: the payload to validate
+    :return: the validated payload as a ManageRequest object
+    :raises ProtocolError: if the payload is invalid
+    """
+    if payload.get("v") != MANAGE_VERSION:
+        raise ProtocolError("unsupported protocol version")
+    kind = payload.get("type")
+    if kind not in MANAGE_TYPES:
+        raise ProtocolError("invalid message type")
+
+    request_id = payload.get("request_id")
+    username = payload.get("username")
+    if not isinstance(request_id, str) or not (1 <= len(request_id) <= 64):
+        raise ProtocolError("invalid request_id")
+    if not isinstance(username, str) or not (1 <= len(username) <= 64):
+        raise ProtocolError("invalid username")
+
+    req = ManageRequest(id=request_id, type=kind, username=username)
+
+    if kind == "models_remove":
+        model = payload.get("model")
+        # bool is an int subclass; reject it explicitly
+        if not isinstance(model, int) or isinstance(model, bool) or model < 0:
+            raise ProtocolError("invalid model")
+        req.model = model
+
+    if kind in ("enroll", "test"):
+        req.preview = _flag(payload, "preview")
+
+    if kind == "enroll":
+        label = payload.get("label")
+        if not isinstance(label, str) or not (1 <= len(label) <= 64):
+            raise ProtocolError("invalid label")
+        req.label = label
+        req.replace = _flag(payload, "replace")
+
+    if kind == "test":
+        duration_ms = payload.get("duration_ms", DEFAULT_TEST_DURATION_MS)
+        if (
+            not isinstance(duration_ms, int)
+            or isinstance(duration_ms, bool)
+            or not (1000 <= duration_ms <= 60000)
+        ):
+            raise ProtocolError("invalid duration_ms")
+        req.duration_ms = duration_ms
+
+    return req
+
+
+def _flag(payload: dict, key: str) -> bool:
+    value = payload.get(key, False)
+    if not isinstance(value, bool):
+        raise ProtocolError(f"invalid {key}")
+    return value
