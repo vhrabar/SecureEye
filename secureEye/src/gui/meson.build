@@ -8,6 +8,7 @@ gui_inc = include_directories('src', 'src/core', 'src/system')
 moc_files = qt6.preprocess(
     moc_headers : [
         'src/app/Application.hpp',
+        'src/system/AuthdRequest.hpp',
         'src/system/GuiBackend.hpp',
     ],
     qresources : ['secureeye-gui.qrc'],
@@ -61,6 +62,7 @@ gui_sources = [
     'src/core/ConfigModel.cpp',
     'src/core/ConfigSectionFilter.cpp',
     'src/core/IniDocument.cpp',
+    'src/system/AuthdRequest.cpp',
     'src/system/DaemonController.cpp',
     'src/system/GuiBackend.cpp',
     'src/system/PamStatus.cpp',
@@ -97,7 +99,7 @@ install_data(
     install_tag : 'gui',
 )
 
-qt6_test_dep = dependency('qt6', modules : ['Core', 'Qml', 'Test'], required : false)
+qt6_test_dep = dependency('qt6', modules : ['Core', 'Gui', 'Network', 'Qml', 'Test'], required : false)
 if qt6_test_dep.found()
     test_configstore_moc = qt6.preprocess(
         moc_headers : ['src/core/ConfigStore.hpp', 'src/system/GuiBackend.hpp'],
@@ -122,4 +124,22 @@ if qt6_test_dep.found()
         install : false,
     )
     test('configstore', test_configstore, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_authdrequest_moc = qt6.preprocess(
+        moc_headers : ['src/system/AuthdRequest.hpp'],
+        moc_sources : ['tests/test_authdrequest.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_authdrequest = executable(
+        'test_authdrequest',
+        'tests/test_authdrequest.cpp',
+        'src/system/AuthdRequest.cpp',
+        test_authdrequest_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        cpp_args : ['-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"'],
+        install : false,
+    )
+    test('authdrequest', test_authdrequest, env : ['QT_QPA_PLATFORM=offscreen'])
 endif
