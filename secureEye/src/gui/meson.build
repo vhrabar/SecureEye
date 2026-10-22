@@ -38,6 +38,7 @@ qml_module = qt6.qml_module(
         'src/core/ConfigModel.hpp',
         'src/core/ConfigSectionFilter.hpp',
         'src/system/DaemonController.hpp',
+        'src/system/ModelStore.hpp',
         'src/system/PamStatus.hpp',
     ],
     include_directories : gui_inc,
@@ -65,6 +66,7 @@ gui_sources = [
     'src/system/AuthdRequest.cpp',
     'src/system/DaemonController.cpp',
     'src/system/GuiBackend.cpp',
+    'src/system/ModelStore.cpp',
     'src/system/PamStatus.cpp',
     gui_paths_h,
 ]
@@ -142,4 +144,23 @@ if qt6_test_dep.found()
         install : false,
     )
     test('authdrequest', test_authdrequest, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_modelstore_moc = qt6.preprocess(
+        moc_headers : ['src/system/AuthdRequest.hpp', 'src/system/ModelStore.hpp'],
+        moc_sources : ['tests/test_modelstore.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_modelstore = executable(
+        'test_modelstore',
+        'tests/test_modelstore.cpp',
+        'src/system/AuthdRequest.cpp',
+        'src/system/ModelStore.cpp',
+        test_modelstore_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        cpp_args : ['-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"'],
+        install : false,
+    )
+    test('modelstore', test_modelstore, env : ['QT_QPA_PLATFORM=offscreen'])
 endif
