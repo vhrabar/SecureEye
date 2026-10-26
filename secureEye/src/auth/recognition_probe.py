@@ -114,7 +114,8 @@ class RecognitionProbe:
                     break
                 try:
                     captured = stream.read()
-                except Exception:
+                # VideoCapture still calls sys.exit() when a read fails
+                except (Exception, SystemExit):
                     # reading a camera that cancel() just released
                     if self._cancel_event.is_set():
                         break

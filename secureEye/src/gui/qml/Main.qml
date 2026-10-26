@@ -37,6 +37,13 @@ Kirigami.ApplicationWindow {
                 onTriggered: root.showPage(dashboardComponent)
             },
             Kirigami.Action {
+                checked: root.currentPage === faceModelsComponent
+                icon.name: "user-identity"
+                text: "Face models"
+
+                onTriggered: root.showPage(faceModelsComponent)
+            },
+            Kirigami.Action {
                 checked: root.currentPage === configComponent
                 icon.name: "settings-configure"
                 text: "Configuration"
@@ -61,6 +68,11 @@ Kirigami.ApplicationWindow {
         id: dashboardComponent
 
         Dashboard {}
+    }
+    Component {
+        id: faceModelsComponent
+
+        FaceModels {}
     }
     Component {
         id: configComponent

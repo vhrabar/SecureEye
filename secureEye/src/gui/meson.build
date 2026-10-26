@@ -8,6 +8,7 @@ gui_inc = include_directories('src', 'src/core', 'src/system')
 moc_files = qt6.preprocess(
     moc_headers : [
         'src/app/Application.hpp',
+        'src/system/AuthdRequest.hpp',
         'src/system/GuiBackend.hpp',
     ],
     qresources : ['secureeye-gui.qrc'],
@@ -22,7 +23,11 @@ qml_module = qt6.qml_module(
         'qml/Main.qml',
         'qml/pages/Dashboard.qml',
         'qml/pages/Configuration.qml',
+        'qml/pages/FaceModels.qml',
         'qml/controls/ConfigRow.qml',
+        'qml/components/CameraPreview.qml',
+        'qml/components/EnrollDialog.qml',
+        'qml/components/RecognitionTestDialog.qml',
         'qml/components/SectionHeading.qml',
         'qml/components/SelectRow.qml',
         'qml/components/SliderRow.qml',
@@ -36,8 +41,12 @@ qml_module = qt6.qml_module(
         'src/core/ConfigStore.hpp',
         'src/core/ConfigModel.hpp',
         'src/core/ConfigSectionFilter.hpp',
+        'src/system/CameraDevice.hpp',
+        'src/system/CameraSession.hpp',
         'src/system/DaemonController.hpp',
+        'src/system/ModelStore.hpp',
         'src/system/PamStatus.hpp',
+        'src/system/PreviewImage.hpp',
     ],
     include_directories : gui_inc,
     dependencies : qt6_dep,
@@ -61,9 +70,14 @@ gui_sources = [
     'src/core/ConfigModel.cpp',
     'src/core/ConfigSectionFilter.cpp',
     'src/core/IniDocument.cpp',
+    'src/system/AuthdRequest.cpp',
+    'src/system/CameraDevice.cpp',
+    'src/system/CameraSession.cpp',
     'src/system/DaemonController.cpp',
     'src/system/GuiBackend.cpp',
+    'src/system/ModelStore.cpp',
     'src/system/PamStatus.cpp',
+    'src/system/PreviewImage.cpp',
     gui_paths_h,
 ]
 
@@ -97,7 +111,7 @@ install_data(
     install_tag : 'gui',
 )
 
-qt6_test_dep = dependency('qt6', modules : ['Core', 'Qml', 'Test'], required : false)
+qt6_test_dep = dependency('qt6', modules : ['Core', 'Gui', 'Network', 'Qml', 'Quick', 'Test'], required : false)
 if qt6_test_dep.found()
     test_configstore_moc = qt6.preprocess(
         moc_headers : ['src/core/ConfigStore.hpp', 'src/system/GuiBackend.hpp'],
@@ -122,4 +136,84 @@ if qt6_test_dep.found()
         install : false,
     )
     test('configstore', test_configstore, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_authdrequest_moc = qt6.preprocess(
+        moc_headers : ['src/system/AuthdRequest.hpp'],
+        moc_sources : ['tests/test_authdrequest.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_authdrequest = executable(
+        'test_authdrequest',
+        'tests/test_authdrequest.cpp',
+        'src/system/AuthdRequest.cpp',
+        test_authdrequest_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        cpp_args : ['-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"'],
+        install : false,
+    )
+    test('authdrequest', test_authdrequest, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_modelstore_moc = qt6.preprocess(
+        moc_headers : ['src/system/AuthdRequest.hpp', 'src/system/ModelStore.hpp'],
+        moc_sources : ['tests/test_modelstore.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_modelstore = executable(
+        'test_modelstore',
+        'tests/test_modelstore.cpp',
+        'src/system/AuthdRequest.cpp',
+        'src/system/ModelStore.cpp',
+        test_modelstore_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        cpp_args : ['-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"'],
+        install : false,
+    )
+    test('modelstore', test_modelstore, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_camerasession_moc = qt6.preprocess(
+        moc_headers : [
+            'src/system/AuthdRequest.hpp',
+            'src/system/CameraSession.hpp',
+            'src/system/ModelStore.hpp',
+            'src/system/PreviewImage.hpp',
+        ],
+        moc_sources : ['tests/test_camerasession.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_camerasession = executable(
+        'test_camerasession',
+        'tests/test_camerasession.cpp',
+        'src/system/AuthdRequest.cpp',
+        'src/system/CameraSession.cpp',
+        'src/system/ModelStore.cpp',
+        'src/system/PreviewImage.cpp',
+        test_camerasession_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        cpp_args : ['-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"'],
+        install : false,
+    )
+    test('camerasession', test_camerasession, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_cameradevice_moc = qt6.preprocess(
+        moc_headers : ['src/system/CameraDevice.hpp'],
+        moc_sources : ['tests/test_cameradevice.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_cameradevice = executable(
+        'test_cameradevice',
+        'tests/test_cameradevice.cpp',
+        'src/system/CameraDevice.cpp',
+        test_cameradevice_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        install : false,
+    )
+    test('cameradevice', test_cameradevice, env : ['QT_QPA_PLATFORM=offscreen'])
 endif

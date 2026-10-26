@@ -7,6 +7,8 @@ import SecureEye.Gui
 Kirigami.ScrollablePage {
     id: page
 
+    property string devicePath: ConfigStore.value("video", "device_path")
+
     // systemd's ActiveState of the daemon, mapped onto a status card.
     readonly property var daemonStatus: {
         if (!DaemonController.installed) {
@@ -57,12 +59,32 @@ Kirigami.ScrollablePage {
 
     title: "Dashboard"
 
+    CameraDevice {
+        id: camera
+
+        path: page.devicePath
+    }
+    EnrollDialog {
+        id: enrollDialog
+    }
+    RecognitionTestDialog {
+        id: testDialog
+    }
     Connections {
         function onFailed(message: string): void {
             page.showError(message);
         }
 
         target: DaemonController
+    }
+    Connections {
+        function onValueChanged(section: string, key: string): void {
+            if (section === "video" && key === "device_path") {
+                page.devicePath = ConfigStore.value("video", "device_path");
+            }
+        }
+
+        target: ConfigStore
     }
     Connections {
         function onFailed(message: string): void {
@@ -148,12 +170,39 @@ Kirigami.ScrollablePage {
                 state: page.daemonStatus.state
                 status: page.daemonStatus.text
             }
-            // Placeholder until the camera status comes from the daemon (#24, #30).
+            // The configured device node; whether the daemon can open it shows once a session runs.
             StatusCard {
                 caption: "CAMERA"
-                detail: "/dev/video0"
-                state: StatusCard.State.Ok
-                status: "Connected"
+                detail: {
+                    switch (camera.status) {
+                    case CameraDevice.Status.NotSet:
+                        return "Set video.device_path in the configuration";
+                    case CameraDevice.Status.Present:
+                        return camera.name ? "%1 (%2)".arg(camera.name).arg(camera.path) : camera.path;
+                    default:
+                        return camera.path;
+                    }
+                }
+                state: {
+                    switch (camera.status) {
+                    case CameraDevice.Status.Present:
+                        return StatusCard.State.Ok;
+                    case CameraDevice.Status.NotSet:
+                        return StatusCard.State.Warning;
+                    default:
+                        return StatusCard.State.Error;
+                    }
+                }
+                status: {
+                    switch (camera.status) {
+                    case CameraDevice.Status.Present:
+                        return "Found";
+                    case CameraDevice.Status.NotSet:
+                        return "Not set";
+                    default:
+                        return "Not found";
+                    }
+                }
             }
         }
 
@@ -164,9 +213,13 @@ Kirigami.ScrollablePage {
             Controls.Button {
                 highlighted: true
                 text: "Run recognition test"
+
+                onClicked: testDialog.open()
             }
             Controls.Button {
                 text: "Enroll a face model"
+
+                onClicked: enrollDialog.open()
             }
         }
 
