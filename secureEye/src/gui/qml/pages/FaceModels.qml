@@ -24,6 +24,13 @@ Kirigami.ScrollablePage {
             onTriggered: enrollDialog.open()
         },
         Kirigami.Action {
+            enabled: store.count > 0
+            icon.name: "media-playback-start"
+            text: "Test"
+
+            onTriggered: testDialog.open()
+        },
+        Kirigami.Action {
             // also the way out of an unreadable model file
             enabled: !store.busy && (store.count > 0 || store.error === "model_file_invalid")
             icon.name: "edit-delete"
@@ -60,6 +67,9 @@ Kirigami.ScrollablePage {
         id: enrollDialog
 
         onEnrolled: store.refresh()
+    }
+    RecognitionTestDialog {
+        id: testDialog
     }
     Kirigami.PromptDialog {
         id: removeDialog

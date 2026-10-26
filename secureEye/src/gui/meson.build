@@ -27,6 +27,7 @@ qml_module = qt6.qml_module(
         'qml/controls/ConfigRow.qml',
         'qml/components/CameraPreview.qml',
         'qml/components/EnrollDialog.qml',
+        'qml/components/RecognitionTestDialog.qml',
         'qml/components/SectionHeading.qml',
         'qml/components/SelectRow.qml',
         'qml/components/SliderRow.qml',

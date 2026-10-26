@@ -37,10 +37,10 @@ class CameraSession : public QObject {
     // Face boxes as QRectF fractions (0..1) of the preview image.
     Q_PROPERTY(QVariantList faces READ faces NOTIFY frameChanged)
     // Closest match in the frame on the config.ini certainty scale; NaN when nothing was compared.
-    Q_PROPERTY(qreal distance READ distance NOTIFY frameChanged)
-    Q_PROPERTY(qreal certainty READ certainty NOTIFY frameChanged)
-    Q_PROPERTY(qreal darkness READ darkness NOTIFY frameChanged)
-    Q_PROPERTY(qreal darkThreshold READ darkThreshold NOTIFY frameChanged)
+    Q_PROPERTY(double distance READ distance NOTIFY frameChanged)
+    Q_PROPERTY(double certainty READ certainty NOTIFY frameChanged)
+    Q_PROPERTY(double darkness READ darkness NOTIFY frameChanged)
+    Q_PROPERTY(double darkThreshold READ darkThreshold NOTIFY frameChanged)
     Q_PROPERTY(int frameCount READ frameCount NOTIFY frameChanged)
     Q_PROPERTY(bool hasPreview READ hasPreview NOTIFY previewChanged)
 

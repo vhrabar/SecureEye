@@ -60,6 +60,9 @@ Kirigami.ScrollablePage {
     EnrollDialog {
         id: enrollDialog
     }
+    RecognitionTestDialog {
+        id: testDialog
+    }
     Connections {
         function onFailed(message: string): void {
             page.showError(message);
@@ -167,6 +170,8 @@ Kirigami.ScrollablePage {
             Controls.Button {
                 highlighted: true
                 text: "Run recognition test"
+
+                onClicked: testDialog.open()
             }
             Controls.Button {
                 text: "Enroll a face model"

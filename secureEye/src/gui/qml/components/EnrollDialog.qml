@@ -48,7 +48,8 @@ Kirigami.Dialog {
         }
     ]
 
-    onOpened: {
+    // before the dialog shows, so the last run's picture and result never flash up while it opens
+    onAboutToShow: {
         session.reset();
         labelField.text = "";
         replaceBox.checked = false;
