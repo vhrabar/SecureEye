@@ -41,6 +41,7 @@ qml_module = qt6.qml_module(
         'src/core/ConfigStore.hpp',
         'src/core/ConfigModel.hpp',
         'src/core/ConfigSectionFilter.hpp',
+        'src/system/CameraDevice.hpp',
         'src/system/CameraSession.hpp',
         'src/system/DaemonController.hpp',
         'src/system/ModelStore.hpp',
@@ -70,6 +71,7 @@ gui_sources = [
     'src/core/ConfigSectionFilter.cpp',
     'src/core/IniDocument.cpp',
     'src/system/AuthdRequest.cpp',
+    'src/system/CameraDevice.cpp',
     'src/system/CameraSession.cpp',
     'src/system/DaemonController.cpp',
     'src/system/GuiBackend.cpp',
@@ -197,4 +199,21 @@ if qt6_test_dep.found()
         install : false,
     )
     test('camerasession', test_camerasession, env : ['QT_QPA_PLATFORM=offscreen'])
+
+    test_cameradevice_moc = qt6.preprocess(
+        moc_headers : ['src/system/CameraDevice.hpp'],
+        moc_sources : ['tests/test_cameradevice.cpp'],
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+    )
+    test_cameradevice = executable(
+        'test_cameradevice',
+        'tests/test_cameradevice.cpp',
+        'src/system/CameraDevice.cpp',
+        test_cameradevice_moc,
+        include_directories : gui_inc,
+        dependencies : qt6_test_dep,
+        install : false,
+    )
+    test('cameradevice', test_cameradevice, env : ['QT_QPA_PLATFORM=offscreen'])
 endif
