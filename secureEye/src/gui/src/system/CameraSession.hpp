@@ -131,6 +131,9 @@ public:
     Q_INVOKABLE void start();
     // Stop the session and give the camera back. The result still arrives through stateChanged.
     Q_INVOKABLE void cancel();
+    // Back to Idle with no frame, preview or result. A running session is dropped by closing its connection, which
+    // the daemon takes as a cancel; no result is reported for it. For dialogs that are closed and opened again.
+    Q_INVOKABLE void reset();
 
     // A user-facing sentence for a session result, on top of ModelStore::messageFor().
     // moc cannot parse trailing return types, so the invokables spell theirs out.

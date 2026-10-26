@@ -117,11 +117,15 @@ void ModelStore::onListFinished(const QString& result, const QJsonObject& data) 
 
 void ModelStore::setRows(QList<Row> rows) {
     const int before = count();
+    const int nextBefore = nextModelId();
     beginResetModel();
     m_rows = std::move(rows);
     endResetModel();
     if (count() != before) {
         emit countChanged();
+    }
+    if (nextModelId() != nextBefore) {
+        emit nextModelIdChanged();
     }
 }
 

@@ -30,6 +30,16 @@ from .test_capture import (  # noqa: E402
 )
 
 
+class ExitingCapture(FakeCapture):
+    """Like VideoCapture: a read from a released camera fails with sys.exit(14)."""
+
+    def read_frame(self):
+        time.sleep(0.01)
+        if self.releases:
+            sys.exit(14)
+        return super().read_frame()
+
+
 @pytest.fixture
 def models_dir(tmp_path, monkeypatch):
     path = tmp_path / "models"
@@ -107,6 +117,22 @@ def test_cancel_stops_the_probe_and_releases_the_camera(models_dir):
     assert outcome.result is ProbeResult.CANCELLED
     assert time.monotonic() - start < 2
     assert capture.releases == 1
+
+
+def test_cancel_while_reading_is_cancelled_not_a_camera_error(models_dir):
+    capture = ExitingCapture([BRIGHT])
+    bundle = PipelineBundle(
+        backend="fake", detector=ScriptedDetector([[]]), recognizer=FixedRecognizer()
+    )
+    probe = RecognitionProbe(
+        _config(),
+        bundle,
+        stream_factory=lambda config: FrameStream(config, capture_factory=lambda _c: capture),
+        duration_s=30,
+    )
+    threading.Timer(0.05, probe.cancel).start()
+
+    assert probe.run("alice").result is ProbeResult.CANCELLED
 
 
 def test_failing_observer_cancels_the_probe(models_dir):

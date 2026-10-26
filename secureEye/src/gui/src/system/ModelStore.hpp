@@ -20,6 +20,8 @@ class ModelStore : public QAbstractListModel {
 
     Q_PROPERTY(QString user READ user CONSTANT)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+    // The id the daemon gives the next enrolled model (last id + 1), for default labels like "Model #3".
+    Q_PROPERTY(int nextModelId READ nextModelId NOTIFY nextModelIdChanged)
     // A models_list request is running.
     Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged)
     // A remove or clear is running; further changes are refused until it finishes.
@@ -49,6 +51,9 @@ public:
     [[nodiscard]] auto count() const -> int {
         return static_cast<int>(m_rows.size());
     }
+    [[nodiscard]] auto nextModelId() const -> int {
+        return m_rows.isEmpty() ? 0 : m_rows.last().id + 1;
+    }
     [[nodiscard]] auto isLoading() const -> bool {
         return m_listRequest != nullptr;
     }
@@ -73,6 +78,7 @@ public:
 
 signals:
     void countChanged();
+    void nextModelIdChanged();
     void loadingChanged();
     void busyChanged();
     void errorChanged();

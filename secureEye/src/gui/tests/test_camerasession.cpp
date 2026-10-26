@@ -190,6 +190,27 @@ private slots:
         QCOMPARE(daemon.accept().value(QStringLiteral("type")).toString(), QStringLiteral("enroll"));
     }
 
+    void resetDropsARunningSession() {
+        FakeDaemon daemon(m_path);
+        CameraSession session;
+        QSignalSpy finished(&session, &CameraSession::finished);
+        session.start();
+        const QString id = daemon.accept().value(QStringLiteral("request_id")).toString();
+        daemon.send(daemonEvent(QStringLiteral("started")), id);
+        daemon.send(frame({{QStringLiteral("state"), QStringLiteral("face")}}, jpegBase64(QSize(32, 24))), id);
+        QTRY_VERIFY_WITH_TIMEOUT(session.hasPreview(), kWaitMs);
+
+        session.reset();
+
+        QCOMPARE(session.state(), CameraSession::State::Idle);
+        QVERIFY(!session.hasPreview());
+        QCOMPARE(session.frameCount(), 0);
+        // closing the connection is the cancel; the dropped session reports nothing
+        QVERIFY(daemon.connection()->waitForDisconnected(kWaitMs));
+        QTest::qWait(100);
+        QCOMPARE(finished.count(), 0);
+    }
+
     void startWhileActiveIsIgnored() {
         FakeDaemon daemon(m_path);
         CameraSession session;

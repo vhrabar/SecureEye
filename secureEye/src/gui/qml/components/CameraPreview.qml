@@ -91,7 +91,13 @@ Item {
     Kirigami.PlaceholderMessage {
         anchors.centerIn: parent
         icon.name: "camera-web"
-        text: preview.session.active ? qsTr("Starting the camera…") : qsTr("Camera off")
+        text: {
+            if (preview.session.active) {
+                return qsTr("Starting the camera…");
+            }
+            // before a session the camera is simply not on yet; it is never opened without Start
+            return preview.session.state === CameraSession.State.Idle ? qsTr("The camera turns on when you press Start") : qsTr("Camera off");
+        }
         visible: !preview.session.hasPreview
         width: parent.width - Kirigami.Units.gridUnit * 4
 

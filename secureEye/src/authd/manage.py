@@ -15,7 +15,7 @@ import cv2
 
 import paths_factory
 from auth import ExitCode, template_store
-from auth.capture import FrameReport, FrameStream
+from auth.capture import FrameReport, FrameState, FrameStream
 from auth.detector_factory import create_pipeline
 from auth.enrollment import EnrollOutcome, EnrollResult, EnrollSession
 from auth.interfaces import Frame
@@ -246,7 +246,10 @@ class _FrameSender:
             "report": report.to_dict(),
         }
         now = time.monotonic()
-        if self.req.preview and now - self._last_preview >= PREVIEW_INTERVAL_S:
+        # IR cameras deliver a black frame whenever the emitter is off, often every other one; showing those
+        # would make the preview flicker, so the last real picture stays up instead
+        wants_preview = self.req.preview and report.state is not FrameState.BLACK
+        if wants_preview and now - self._last_preview >= PREVIEW_INTERVAL_S:
             preview = encode_preview(frame)
             # leave room for the report; an oversized preview is dropped, not fatal
             if preview is not None and len(preview) <= MAX_EVENT_PAYLOAD - 2048:

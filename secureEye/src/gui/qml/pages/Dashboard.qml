@@ -57,6 +57,9 @@ Kirigami.ScrollablePage {
 
     title: "Dashboard"
 
+    EnrollDialog {
+        id: enrollDialog
+    }
     Connections {
         function onFailed(message: string): void {
             page.showError(message);
@@ -167,6 +170,8 @@ Kirigami.ScrollablePage {
             }
             Controls.Button {
                 text: "Enroll a face model"
+
+                onClicked: enrollDialog.open()
             }
         }
 

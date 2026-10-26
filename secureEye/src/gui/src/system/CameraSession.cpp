@@ -81,6 +81,17 @@ void CameraSession::cancel() {
     }
 }
 
+void CameraSession::reset() {
+    delete m_request;
+    m_request = nullptr;
+    resetFrame();
+    m_result.clear();
+    m_resultData.clear();
+    // always emitted: result and resultData share stateChanged, so even Idle to Idle may clear a result
+    m_state = State::Idle;
+    emit stateChanged();
+}
+
 void CameraSession::onFrame(const QJsonObject& report, const QImage& preview) {
     m_frameState = report.value(QStringLiteral("state")).toString();
     m_distance = numberOr(report.value(QStringLiteral("distance")), kNoValue);

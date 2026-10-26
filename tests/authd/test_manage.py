@@ -26,6 +26,7 @@ from authd.camera import CameraArbiter, CameraUse  # noqa: E402
 from authd.protocol import read_frame, write_frame  # noqa: E402
 
 from ..auth.test_capture import (  # noqa: E402
+    BLACK,
     BRIGHT,
     NEAR,
     SPACE,
@@ -60,7 +61,9 @@ def daemon(monkeypatch, tmp_path):
     models.mkdir()
     monkeypatch.setattr(paths_factory, "user_model_path", lambda user: str(models / f"{user}.dat"))
 
-    env = SimpleNamespace(models=models, faces=[[NEAR]], captures=[], camera=CameraArbiter())
+    env = SimpleNamespace(
+        models=models, frames=[BRIGHT], faces=[[NEAR]], captures=[], camera=CameraArbiter()
+    )
     monkeypatch.setattr(authd_main, "_camera", env.camera)
     monkeypatch.setattr(authd_main, "AuthSession", QuickLogin)
     monkeypatch.setattr(manage, "_load_config", _config)
@@ -73,7 +76,7 @@ def daemon(monkeypatch, tmp_path):
     )
 
     def stream(config, transform=True):
-        capture = SlowCapture([BRIGHT])
+        capture = SlowCapture(env.frames)
         env.captures.append(capture)
         return FrameStream(config, capture_factory=lambda _c: capture, transform=transform)
 
@@ -213,6 +216,19 @@ def test_enroll_streams_frames_and_saves_the_model(daemon):
     assert [t.label for t in template_store.load_all(ME)] == ["desk"]
     assert daemon.captures[0].releases == 1
     assert daemon.camera.holder() is None
+
+
+def test_black_frames_carry_no_preview(daemon):
+    # an IR camera with its emitter on every other frame
+    daemon.frames[:] = [BRIGHT, BLACK, BRIGHT, BLACK]
+    daemon.faces[:] = [[], [NEAR]]
+
+    messages = _request(daemon.path, {"type": "enroll", "label": "desk", "preview": True})
+
+    frames = [(m["report"]["state"], "preview" in m) for m in messages if m["type"] == "frame"]
+    assert [state for state, _ in frames] == ["no_face", "black", "face"]
+    assert ("black", True) not in frames
+    assert frames[0] == ("no_face", True)
 
 
 def test_enroll_without_preview_sends_no_images(daemon):

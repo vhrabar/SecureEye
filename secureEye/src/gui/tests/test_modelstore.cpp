@@ -72,6 +72,13 @@ private slots:
         QVERIFY(store.error().isEmpty());
         QCOMPARE(loading.count(), 2);
         QVERIFY(store.roleNames().values().contains("modelId"));
+        // the daemon numbers new models after the last one, gaps and all
+        QCOMPARE(store.nextModelId(), 3);
+    }
+
+    void nextModelIdWithoutModels() {
+        ModelStore store;
+        QCOMPARE(store.nextModelId(), 0);
     }
 
     void noModelsIsAnEmptyListNotAnError() {
