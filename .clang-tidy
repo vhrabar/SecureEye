@@ -23,7 +23,7 @@ WarningsAsErrors: >
   -clang-diagnostic-unused-command-line-argument,
   -bugprone-easily-swappable-*
 
-ž
+
 HeaderFilterRegex: '.*/secureEye/src/(gui/src/[^/]+|pam)/[^/]+\.(h|hh|hpp)$'
 
 FormatStyle: file
