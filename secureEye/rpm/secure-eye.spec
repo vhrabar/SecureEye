@@ -38,6 +38,11 @@ BuildRequires:  libevdev-devel
 BuildRequires:  inih-devel
 BuildRequires:  python3-devel
 BuildRequires:  systemd-rpm-macros
+# secure-eye-gui
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtdeclarative-devel
+BuildRequires:  desktop-file-utils
+BuildRequires:  appstream
 
 Requires:       python3 >= 3.12
 Requires:       python3-numpy
@@ -80,6 +85,24 @@ after a Python upgrade.
 Unlike Debian/Ubuntu there is no pam-auth-update on Fedora; enable the module
 manually or via an authselect custom profile (see README.Fedora.md).
 
+%package gui
+Summary:        SecureEye face authentication for Linux - management app
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       kf6-kirigami
+Requires:       qt6-qtdeclarative%{?_isa}
+Recommends:     kf6-qqc2-desktop-style
+Recommends:     breeze-icon-theme
+# pkexec, for saving the configuration and switching face login
+Recommends:     polkit
+
+%description gui
+A Qt/Kirigami app for SecureEye: enroll face models with a live camera
+preview, test recognition against the certainty threshold, switch face login
+on and off, edit the configuration and control the secureeye-authd service.
+
+The camera and the face models are handled by secureeye-authd; the app talks
+to it over its UNIX socket and never opens the camera itself.
+
 %prep
 %autosetup -n %{name}-%{version}
 
@@ -99,7 +122,8 @@ meson setup %{_vpath_builddir} . \
     -Dpython_path=%{_bindir}/python3 \
     -Dconfig_dir=%{_sysconfdir}/secureEye \
     -Duser_models_dir=%{_sysconfdir}/secureEye/models \
-    -Dwith_polkit=true
+    -Dwith_polkit=true \
+    -Dinstall_gui=true
 meson compile -C %{_vpath_builddir}
 
 %install
@@ -112,6 +136,10 @@ install -d -m 0700 %{buildroot}%{_sysconfdir}/secureEye/models
 
 # sysusers fragment.
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
+
+%check
+desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.vhrabar.SecureEye.desktop
+appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.vhrabar.SecureEye.metainfo.xml
 
 %pre
 %sysusers_create_compat %{SOURCE1}
@@ -137,12 +165,17 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/secure-eye.conf
 %{_sysusersdir}/secure-eye.conf
 %{_datadir}/bash-completion/completions/secureEye
 %{_datadir}/polkit-1/actions/com.github.vhrabar.secureeye.policy
-%dir %{_datadir}/secureEye
-%{_datadir}/secureEye/logo.png
 %{_mandir}/man1/SecureEye.1*
 %dir %{_sysconfdir}/secureEye
 %config(noreplace) %{_sysconfdir}/secureEye/config.ini
 %dir %attr(0700,secureeye,secureeye) %{_sysconfdir}/secureEye/models
+
+%files gui
+%license LICENSE
+%{_bindir}/secureeye-gui
+%{_datadir}/applications/io.github.vhrabar.SecureEye.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.vhrabar.SecureEye.svg
+%{_metainfodir}/io.github.vhrabar.SecureEye.metainfo.xml
 
 %changelog
 * Wed Aug 19 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.2.1-1
