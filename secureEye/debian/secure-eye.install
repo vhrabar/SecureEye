@@ -6,6 +6,5 @@ usr/lib/tmpfiles.d/secure-eye.conf
 usr/share/bash-completion/completions/secureEye
 usr/share/polkit-1/actions/com.github.vhrabar.secureeye.policy
 usr/share/man/man1/SecureEye.1
-usr/share/secureEye/logo.png
 etc/secureEye/config.ini
 debian/secureEye.pam-config usr/share/pam-configs/
