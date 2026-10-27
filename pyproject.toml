@@ -64,7 +64,7 @@ required-environments = [
 [dependency-groups]
 dev = [
 	"pytest==9.1.1",
-	"ruff==0.17.1",
+	"ruff==0.17.2",
 	"mypy==2.4.0",
 ]
 
