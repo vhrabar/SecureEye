@@ -65,6 +65,7 @@ if [[ -n "$EXTRA_SERIES" ]]; then
     SERIES="$EXTRA_SERIES $SERIES"
 fi
 
+requested_series_list=$SERIES
 ordered_series=""
 for known_series in $(distro-info --all); do
     for requested_series in $SERIES; do
@@ -75,6 +76,13 @@ for known_series in $(distro-info --all); do
     done
 done
 SERIES="${ordered_series# }"
+
+for requested_series in $requested_series_list; do
+    if [[ " $SERIES " != *" $requested_series "* ]]; then
+        echo "Unknown Ubuntu series '$requested_series' (distro-info-data $(dpkg-query -W -f='${Version}' distro-info-data 2>/dev/null))." >&2
+        exit 1
+    fi
+done
 
 if [[ -z "$REVISION" ]]; then
     REVISION=1
@@ -221,6 +229,11 @@ for s in $SERIES; do
             # restore the custom debian directory
             cp -r /tmp/$s/debian/* debian/
         fi
+    fi
+
+    # Series listed in NO_GUI_SERIES cannot build the GUI (no Kirigami for Qt 6); build them without secure-eye-gui.
+    if [[ " ${NO_GUI_SERIES:-} " == *" $s "* ]]; then
+        python3 "$workspace/scripts/debian-without-gui.py" debian
     fi
 
     # Extract the package name from the debian changelog
