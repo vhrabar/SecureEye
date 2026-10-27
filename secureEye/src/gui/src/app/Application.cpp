@@ -13,16 +13,19 @@ namespace {
 constexpr auto kQmlImportPath = "qrc:/qt/qml";
 constexpr auto kMainQml = "qrc:/qt/qml/SecureEye/Gui/Main.qml";
 constexpr auto kAppIcon = ":/icons/logo.svg";
+constexpr auto kAppId = "io.github.vhrabar.SecureEye";
 } // namespace
 
 Application::Application(int& argc, char** argv) : QGuiApplication(argc, argv) {
-    setApplicationName("SecureEye Manager");
+    setApplicationName("secureeye-gui");
+    setApplicationDisplayName("SecureEye");
+    setApplicationVersion(QStringLiteral(SECUREEYE_VERSION));
     setOrganizationName("vhrabar");
     setOrganizationDomain("vhrabar.github.io");
 
-    setDesktopFileName("secureeye-gui");
+    setDesktopFileName(QString::fromLatin1(kAppId));
     QIcon::setFallbackThemeName("breeze");
-    setWindowIcon(QIcon::fromTheme("secureeye", QIcon(QString::fromLatin1(kAppIcon))));
+    setWindowIcon(QIcon::fromTheme(QString::fromLatin1(kAppId), QIcon(QString::fromLatin1(kAppIcon))));
 
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
         QQuickStyle::setStyle("org.kde.desktop");

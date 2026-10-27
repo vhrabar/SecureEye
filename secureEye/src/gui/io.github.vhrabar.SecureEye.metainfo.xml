@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.vhrabar.SecureEye</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-only</project_license>
+
+  <name>SecureEye</name>
+  <summary>Face authentication for Linux</summary>
+  <developer id="io.github.vhrabar">
+    <name>Vedran Hrabar</name>
+  </developer>
+
+  <description>
+    <p>
+      SecureEye logs you in with your face, through PAM, wherever a password is asked for: sudo, the lock screen, the
+      login manager. This app manages it:
+    </p>
+    <ul>
+      <li>enroll face models with a live camera preview, and remove them</li>
+      <li>test recognition and see how close each frame comes to the certainty threshold</li>
+      <li>switch face login on and off, and edit the configuration</li>
+      <li>check and control the SecureEye service and the camera</li>
+    </ul>
+    <p>
+      The camera and the face models are handled by the SecureEye service; the app never opens the camera itself.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.vhrabar.SecureEye.desktop</launchable>
+  <provides>
+    <binary>secureeye-gui</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/vhrabar/SecureEye</url>
+  <url type="bugtracker">https://github.com/vhrabar/SecureEye/issues</url>
+  <url type="vcs-browser">https://github.com/vhrabar/SecureEye</url>
+
+  <categories>
+    <category>Settings</category>
+    <category>Security</category>
+  </categories>
+  <keywords>
+    <keyword>face</keyword>
+    <keyword>login</keyword>
+    <keyword>authentication</keyword>
+    <keyword>camera</keyword>
+  </keywords>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+  <supports>
+    <control>touch</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.3.0" date="2026-11-01">
+      <description>
+        <p>First release of the SecureEye app: face models, enrollment with a live preview, a recognition test,
+          configuration and service control.</p>
+      </description>
+    </release>
+  </releases>
+</component>

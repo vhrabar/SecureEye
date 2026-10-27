@@ -92,24 +92,41 @@ executable(
         '-DAUTHD_SOCKET_PATH="' + get_option('authd_socket_path') + '"',
         '-DSECUREEYE_CONFIG_PATH="' + config_path + '"',
         '-DSECUREEYE_CLI_PATH="' + join_paths(get_option('prefix'), get_option('bindir'), 'secureEye') + '"',
+        '-DSECUREEYE_VERSION="' + meson.project_version() + '"',
     ],
     install : true,
     install_dir : get_option('bindir'),
     install_tag : 'gui',
 )
 
+gui_app_id = 'io.github.vhrabar.SecureEye'
 install_data(
-    'secureeye-gui.desktop',
+    gui_app_id + '.desktop',
     install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'applications'),
     install_tag : 'gui',
 )
 
 install_data(
+    gui_app_id + '.metainfo.xml',
+    install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'metainfo'),
+    install_tag : 'gui',
+)
+
+install_data(
     'icons/logo.svg',
-    rename : 'secureeye.svg',
+    rename : gui_app_id + '.svg',
     install_dir : join_paths(get_option('prefix'), get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'),
     install_tag : 'gui',
 )
+
+desktop_file_validate = find_program('desktop-file-validate', required : false)
+if desktop_file_validate.found()
+    test('desktop-file', desktop_file_validate, args : [files(gui_app_id + '.desktop')])
+endif
+appstreamcli = find_program('appstreamcli', required : false)
+if appstreamcli.found()
+    test('metainfo', appstreamcli, args : ['validate', '--no-net', files(gui_app_id + '.metainfo.xml')])
+endif
 
 qt6_test_dep = dependency('qt6', modules : ['Core', 'Gui', 'Network', 'Qml', 'Quick', 'Test'], required : false)
 if qt6_test_dep.found()

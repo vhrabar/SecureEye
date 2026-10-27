@@ -29,7 +29,8 @@ override_dh_auto_configure:
 		-Dpython_path=/usr/bin/python3 \
 		-Dconfig_dir=/etc/secureEye \
 		-Duser_models_dir=/etc/secureEye/models \
-		-Dwith_polkit=true
+		-Dwith_polkit=true \
+		-Dinstall_gui=true
 
 override_dh_auto_build:
 	meson compile -C $(BUILDDIR)
