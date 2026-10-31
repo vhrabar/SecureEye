@@ -1,0 +1,61 @@
+# Vendored code and verbatim license texts are left untouched.
+exclude: ^(secureEye/src/pam/subprojects/|LICENSE$|licenses/|secureEye/debian/copyright$)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-executables-have-shebangs
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+  # ruff from uv.lock, so the version always matches CI and Dependabot bumps.
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types_or: [python, pyi]
+
+  # Same version as the clang-format job in lint.yml;
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v22.1.8
+    hooks:
+      - id: clang-format
+        types_or: [c, c++]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning]
+        exclude: (^|/)PKGBUILD$
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.13.1
+    hooks:
+      - id: uv-lock
+      - id: uv-export
+        files: ^(uv\.lock|pyproject\.toml)$
+        args:
+          - --no-dev
+          - --no-hashes
+          - --no-emit-project
+          - --format
+          - requirements-txt
+          - -o
+          - requirements.txt

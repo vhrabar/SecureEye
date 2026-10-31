@@ -1,0 +1,13 @@
+* text=auto eol=lf
+*.sh text eol=lf
+secureEye/debian/rules text eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.dat binary
+*.bz2 binary
+
+# Generated: collapse in GitHub diffs.
+uv.lock linguist-generated
+requirements.txt linguist-generated
