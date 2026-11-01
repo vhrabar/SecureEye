@@ -1,5 +1,6 @@
 import builtins
 import os
+import pwd
 import sys
 
 import paths_factory
@@ -11,6 +12,11 @@ from i18n import _
 
 # Labels are stored in a comma-separated listing, and kept short for it
 MAX_LABEL_LENGTH = 24
+
+# secureeye-authd runs as this user (User= in secureeye-authd.service) and owns
+# the models folder; mode as in secureeye-tmpfiles.conf
+DAEMON_USER = "secureeye"
+MODELS_DIR_MODE = 0o700
 
 
 def load_pipeline(config) -> PipelineBundle:
@@ -54,10 +60,38 @@ def load_pipeline(config) -> PipelineBundle:
 
 
 def ensure_models_dir():
-    """Create the models folder if this is the first enrollment on the system."""
-    if not os.path.exists(paths_factory.user_models_dir_path()):
+    """Create the models folder if this is the first enrollment on the system.
+
+    The folder belongs to the daemon user, as tmpfiles.d sets it up. When it has
+    not run yet (a manual install, or before the next boot), root would create
+    the folder for itself, and template_store hands every model file to the
+    folder's owner, so secureeye-authd could not read any of them.
+    """
+    models_dir = paths_factory.user_models_dir_path()
+    if not os.path.exists(models_dir):
         print(_("No face model folder found, creating one"))
-        os.makedirs(paths_factory.user_models_dir_path())
+        os.makedirs(models_dir, mode=MODELS_DIR_MODE)
+    _hand_models_dir_to_daemon(models_dir)
+
+
+def _hand_models_dir_to_daemon(models_dir: str) -> None:
+    """Give the models folder, and the models in it, to the daemon user, like tmpfiles.d's Z line."""
+    if os.geteuid() != 0:
+        return
+    try:
+        daemon = pwd.getpwnam(DAEMON_USER)
+    except KeyError:
+        # No daemon user (a development tree): nothing reads the models but root
+        return
+
+    if os.stat(models_dir).st_uid == daemon.pw_uid:
+        return
+
+    os.chown(models_dir, daemon.pw_uid, daemon.pw_gid)
+    os.chmod(models_dir, MODELS_DIR_MODE)
+    for entry in os.scandir(models_dir):
+        if entry.is_file(follow_symlinks=False):
+            os.chown(entry.path, daemon.pw_uid, daemon.pw_gid)
 
 
 def ask_label(default: str) -> str:

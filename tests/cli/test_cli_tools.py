@@ -483,3 +483,57 @@ def test_load_pipeline_reports_factory_errors(monkeypatch, capsys):
 
     assert excinfo.value.code == 1
     assert "Unsupported detector backend" in capsys.readouterr().out
+
+
+def _as_root_with_daemon_user(monkeypatch, chowns):
+    import cli.enrollment
+
+    monkeypatch.setattr(cli.enrollment.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        cli.enrollment.pwd,
+        "getpwnam",
+        lambda name: SimpleNamespace(pw_uid=990, pw_gid=990) if name == "secureeye" else None,
+    )
+    monkeypatch.setattr(
+        cli.enrollment.os, "chown", lambda path, uid, gid: chowns.append((Path(path), uid, gid))
+    )
+    return cli.enrollment
+
+
+def test_ensure_models_dir_creates_it_for_the_daemon_user(cli_env, monkeypatch):
+    chowns = []
+    enrollment = _as_root_with_daemon_user(monkeypatch, chowns)
+    cli_env.models_dir.rmdir()
+
+    enrollment.ensure_models_dir()
+
+    assert cli_env.models_dir.is_dir()
+    assert cli_env.models_dir.stat().st_mode & 0o777 == 0o700
+    assert chowns == [(cli_env.models_dir, 990, 990)]
+
+
+def test_ensure_models_dir_takes_over_a_root_owned_dir_and_its_models(cli_env, monkeypatch):
+    chowns = []
+    enrollment = _as_root_with_daemon_user(monkeypatch, chowns)
+    cli_env.model_path.write_text("[]", encoding="utf-8")
+
+    enrollment.ensure_models_dir()
+
+    assert set(chowns) == {(cli_env.models_dir, 990, 990), (cli_env.model_path, 990, 990)}
+
+
+def test_ensure_models_dir_leaves_ownership_alone_without_daemon_user(cli_env, monkeypatch):
+    import cli.enrollment
+
+    chowns = []
+    monkeypatch.setattr(cli.enrollment.os, "geteuid", lambda: 0)
+
+    def no_user(name):
+        raise KeyError(name)
+
+    monkeypatch.setattr(cli.enrollment.pwd, "getpwnam", no_user)
+    monkeypatch.setattr(cli.enrollment.os, "chown", lambda *a: chowns.append(a))
+
+    cli.enrollment.ensure_models_dir()
+
+    assert chowns == []
