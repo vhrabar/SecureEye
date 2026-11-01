@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 0.3.1 never reached Ubuntu, Fedora or the AUR: its Debian changelog entry
+  had the same date as 0.3.0's, which lintian rejects, so the release stopped
+  before publishing. Releases dated the same day now get distinct times.
+
 ## [0.3.1] - 2026-11-01
 
 ### Fixed

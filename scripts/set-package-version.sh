@@ -134,12 +134,21 @@ current="$(sed -n '1s/^[^ ]* (\([^)]*\)).*/\1/p' "$changelog")"
 if [ "$current" = "$version" ]; then
     echo "debian/changelog already at $version"
 else
+    deb_fmt='%a, %d %b %Y %H:%M:%S +0000'
+    new_epoch="$(entry_date '%s')"
+    prev_date="$(sed -n 's/^ -- .*>  //p' "$changelog" | head -n 1)"
+    if [ -n "$prev_date" ]; then
+        prev_epoch="$(LC_ALL=C date -u -d "$prev_date" +%s)"
+        if [ "$new_epoch" -le "$prev_epoch" ]; then
+            new_epoch=$((prev_epoch + 3600))
+        fi
+    fi
     tmp="$(mktemp)"
     {
         printf 'secure-eye (%s) unstable; urgency=medium\n\n' "$version"
         printf '%s\n\n' "$deb_body"
         printf ' -- %s <%s>  %s\n\n' "$name" "$mail" \
-            "$(entry_date '%a, %d %b %Y %H:%M:%S +0000')"
+            "$(LC_ALL=C date -u -d "@$new_epoch" "+$deb_fmt")"
         cat "$changelog"
         [ -n "$(tail -c 1 "$changelog")" ] && printf '\n'
     } > "$tmp"
