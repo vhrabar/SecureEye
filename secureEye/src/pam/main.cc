@@ -431,10 +431,11 @@ auto check_enabled(const INIReader& config, const char* username) -> int {
         globfree(&glob_result);
     }
 
-    // pre-check if this user has face model file
+    // Pre-check if this user has a face model file, so a user without one skips
+    // face auth without a round-trip to authd.
     auto model_path = std::string(USER_MODELS_DIR) + "/" + username + ".dat";
     struct stat stat_;
-    if (stat(model_path.c_str(), &stat_) != 0) {
+    if (stat(model_path.c_str(), &stat_) != 0 && errno != EACCES) {
         return PAM_AUTHINFO_UNAVAIL;
     }
 
