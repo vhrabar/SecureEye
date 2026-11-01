@@ -1,6 +1,6 @@
 [project]
 name = "SecureEye"
-version = "0.2.1"
+version = "0.3.0"
 description = "Modern facial authentication for Linux systems (PAM)."
 requires-python = ">=3.12"
 readme = "README.md"

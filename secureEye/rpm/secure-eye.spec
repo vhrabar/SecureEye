@@ -14,7 +14,7 @@
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
-%{!?pkg_version:%global pkg_version 0.2.1}
+%{!?pkg_version:%global pkg_version 0.3.0}
 
 
 %undefine __brp_python_bytecompile
@@ -178,6 +178,44 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.vhrabar.Sec
 %{_metainfodir}/io.github.vhrabar.SecureEye.metainfo.xml
 
 %changelog
+* Sun Nov 01 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.0-1
+- Added: `secure-eye-gui`, the SecureEye app, as its own package on
+  Debian/Ubuntu, Fedora and Arch, so headless installs of `secure-eye` pull
+  in no Qt. It ships under the app ID `io.github.vhrabar.SecureEye`, with a
+  desktop entry, an icon and AppStream metainfo. With it you can enroll face
+  models with a live camera preview and remove them, run a recognition test
+  that shows how close each frame comes to the `certainty` threshold, switch
+  face login on and off, edit the configuration, and see and control the
+  `secureeye-authd` service and the configured camera.
+- Added: The app works through `secureeye-authd`: the daemon owns the camera
+  and the face models, so the app never opens the camera itself and needs no
+  administrator rights to manage your own models. A login always takes
+  priority; an enrollment or test running in the app is stopped when a login
+  needs the camera.
+- Added: `secureEye re-enroll` replaces your face models after a change of
+  recognizer, and keeps the models of the previous one so switching back
+  still works.
+- Added: `--json` output for `list`, `remove`, `clear`, `disable`, `set` and
+  `version`, for scripts.
+- Changed: Face models carry the recognizer that made them, and a login
+  never compares models from different recognizers. If yours no longer match
+  the configured one, the login says so and asks you to run `secureEye
+  re-enroll`.
+- Changed: Face model files are stored in a new format. Existing files keep
+  working and are converted the first time they are changed; older releases
+  cannot read converted files, so downgrading after that means enrolling
+  again.
+- Changed: Face models are owned by the `secureeye` daemon user and are no
+  longer readable by other users.
+- Changed: The daemon's socket is open to all users, and each request is
+  checked against the user who sent it: you can only log in as, or manage
+  the models of, yourself (root can do both for anyone). Screen lockers that
+  run PAM as the logged-in user can now reach the daemon.
+- Changed: The daemon handles several requests at once, so a client that
+  stalls no longer holds up everyone else.
+- Fixed: Face login failed every time on systems with NumPy 2 (`only
+  0-dimensional arrays can be converted to Python scalars`).
+
 * Wed Aug 19 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.2.1-1
 - Fixed: COPR builds failed in the source stage, before any chroot was
   built: `.copr/Makefile` resolved the release version with `git describe`

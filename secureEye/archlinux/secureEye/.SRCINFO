@@ -1,6 +1,6 @@
 pkgbase = secure-eye
 	pkgdesc = Face authentication for Linux
-	pkgver = 0.2.1
+	pkgver = 0.3.0
 	pkgrel = 1
 	url = https://github.com/vhrabar/SecureEye
 	arch = x86_64
@@ -16,7 +16,7 @@ pkgbase = secure-eye
 	makedepends = libinih
 	makedepends = qt6-base
 	makedepends = qt6-declarative
-	source = secure-eye-0.2.1.tar.gz::https://github.com/vhrabar/SecureEye/archive/v0.2.1.tar.gz
+	source = secure-eye-0.3.0.tar.gz::https://github.com/vhrabar/SecureEye/archive/v0.3.0.tar.gz
 	source = secure-eye.install
 	sha256sums = c848207d44068849a13150a8b47a3d45806a9a43b9c868d1f5915ed8c2cf2d18
 	sha256sums = f07bfc5fd27d2e649eebafbccaaefe1be5cce3606363df9a74c7700098476d8f
@@ -53,7 +53,7 @@ pkgname = secure-eye
 pkgname = secure-eye-gui
 	pkgdesc = Face authentication for Linux - management app
 	license = GPL-2.0-only
-	depends = secure-eye=0.2.1
+	depends = secure-eye=0.3.0
 	depends = gcc-libs
 	depends = glibc
 	depends = qt6-base
