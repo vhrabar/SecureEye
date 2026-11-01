@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-01
+
 ### Fixed
 
 - Ubuntu packages for resolute, stonking and tenacious failed to build on
