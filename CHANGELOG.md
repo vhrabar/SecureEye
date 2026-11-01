@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Ubuntu packages for resolute, stonking and tenacious failed to build on
+Launchpad: the Debian source package left out every directory named
+  `tests`, including the app's own test sources, which the build needs.
+- Fedora COPR builds for RHEL 10 and AlmaLinux 10 failed, because their meson
+  is too old for the app. Those two now get `secure-eye` without
+  `secure-eye-gui`; Fedora and CentOS Stream still get both.
+
 ## [0.3.0] - 2026-11-01
 
 ### Added
