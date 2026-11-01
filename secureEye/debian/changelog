@@ -1,3 +1,13 @@
+secure-eye (0.3.2) unstable; urgency=medium
+
+  * Fixed
+    - 0.3.1 never reached Ubuntu, Fedora or the AUR: its Debian changelog
+      entry had the same date as 0.3.0's, which lintian rejects, so the
+      release stopped before publishing. Releases dated the same day now get
+      distinct times.
+
+ -- Vedran Hrabar <vedran.hrabar@outlook.com>  Sun, 01 Nov 2026 01:00:00 +0000
+
 secure-eye (0.3.1) unstable; urgency=medium
 
   * Fixed

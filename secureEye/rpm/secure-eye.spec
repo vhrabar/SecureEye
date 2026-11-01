@@ -14,7 +14,7 @@
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
-%{!?pkg_version:%global pkg_version 0.3.1}
+%{!?pkg_version:%global pkg_version 0.3.2}
 
 
 %undefine __brp_python_bytecompile
@@ -194,6 +194,12 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.vhrabar.Sec
 %endif
 
 %changelog
+* Sun Nov 01 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.2-1
+- Fixed: 0.3.1 never reached Ubuntu, Fedora or the AUR: its Debian changelog
+  entry had the same date as 0.3.0's, which lintian rejects, so the release
+  stopped before publishing. Releases dated the same day now get distinct
+  times.
+
 * Sun Nov 01 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.1-1
 - Fixed: Ubuntu packages for resolute, stonking and tenacious failed to
   build on Launchpad: the Debian source package left out every directory
