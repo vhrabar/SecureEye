@@ -6,19 +6,28 @@ import sys
 import builtins
 import paths_factory
 
+from cli.output import json_mode, ok
 from i18n import _
 
 # Get the passed user
 user = builtins.secureEye_user
 
+# Nothing to clear is an error for people but a no-op for the GUI, which only cares about the end state
+nothing_to_clear = None
+
 # Check if the models folder is there
 if not os.path.exists(paths_factory.user_models_dir_path()):
-    print(_("No models created yet, can't clear them if they don't exist"))
-    sys.exit(1)
+    nothing_to_clear = _("No models created yet, can't clear them if they don't exist")
 
 # Check if the user has a models file to delete
-if not os.path.isfile(paths_factory.user_model_path(user)):
-    print(_("{} has no models or they have been cleared already").format(user))
+elif not os.path.isfile(paths_factory.user_model_path(user)):
+    nothing_to_clear = _("{} has no models or they have been cleared already").format(user)
+
+if nothing_to_clear is not None:
+    if json_mode():
+        ok({"cleared": False})
+        sys.exit(0)
+    print(nothing_to_clear)
     sys.exit(1)
 
 # Only ask the user if there's no -y flag
@@ -34,4 +43,4 @@ if not builtins.secureEye_args.y:
 
 # Delete otherwise
 os.remove(paths_factory.user_model_path(user))
-print(_("\nModels cleared"))
+ok({"cleared": True}, _("\nModels cleared"))

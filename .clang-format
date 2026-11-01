@@ -1,0 +1,86 @@
+# .clang-format
+# Qt6 / C++26 style for SecureEye.
+# Applies to the C++ sources: secureEye/src/gui, secureEye/src/pam.
+
+BasedOnStyle:  LLVM
+Language:      Cpp
+Standard:      Latest
+
+# whitespace / indentation
+IndentWidth:          4
+TabWidth:             4
+UseTab:               Never
+ColumnLimit:          120
+NamespaceIndentation: None
+MaxEmptyLinesToKeep:  1
+AccessModifierOffset: -4
+
+# pointers / references
+PointerAlignment:       Left
+ReferenceAlignment:     Left
+DerivePointerAlignment: false
+
+# braces / short forms
+BreakBeforeBraces:                   Attach
+AllowShortFunctionsOnASingleLine:    Empty
+AllowShortIfStatementsOnASingleLine: false
+
+# spacing / alignment
+SpaceBeforeParens:     ControlStatements
+AlignAfterOpenBracket: Align
+AlignOperands:         Align
+
+# templates / arg packing
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments:                true
+BinPackParameters:               true
+
+# Qt moc macros
+StatementMacros:
+  - Q_OBJECT
+  - Q_NAMESPACE
+  - Q_GADGET
+  - Q_ENUM
+  - Q_ENUM_NS
+  - Q_FLAG
+  - Q_FLAG_NS
+  - Q_PROPERTY
+  - Q_INTERFACES
+  - Q_DECLARE_METATYPE
+  - Q_DISABLE_COPY
+  - Q_DISABLE_COPY_MOVE
+  - Q_MOC_INCLUDE
+  - Q_UNUSED
+  - QML_ELEMENT
+  - QML_NAMED_ELEMENT
+  - QML_UNCREATABLE
+  - QML_SINGLETON
+
+# Qualifier macros that prefix a declaration.
+AttributeMacros:
+  - Q_INVOKABLE
+  - Q_SIGNAL
+  - Q_SLOT
+  - Q_SCRIPTABLE
+  - Q_REQUIRED_RESULT
+  - Q_DECL_UNUSED
+  - PAM_EXTERN
+
+SortIncludes:   true
+IncludeBlocks:  Regroup
+IncludeCategories:
+  # 1. This project's own headers
+  - Regex:    '^"'
+    Priority: 1
+  # 2. Qt
+  - Regex:    '^<(Q|Qt)'
+    Priority: 2
+  # 3. KDE Frameworks (Kirigami, KI18n, KItemModels, ...)
+  - Regex:    '^<K[A-Z]'
+    Priority: 3
+  # 4. Other library and system headers, plus generated headers (paths.hh)
+  - Regex:    '^<.*\..*'
+    Priority: 4
+  # 5. C++ standard library
+  - Regex:    '^<[^.]+'
+    Priority: 5

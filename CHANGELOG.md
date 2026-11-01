@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `secure-eye-gui`, the SecureEye app, as its own package on Debian/Ubuntu,
+  Fedora and Arch, so headless installs of `secure-eye` pull in no Qt. It
+  ships under the app ID `io.github.vhrabar.SecureEye`, with a desktop entry,
+  an icon and AppStream metainfo. With it you can enroll face models with a
+  live camera preview and remove them, run a recognition test that shows how
+  close each frame comes to the `certainty` threshold, switch face login on
+  and off, edit the configuration, and see and control the `secureeye-authd`
+  service and the configured camera.
+- The app works through `secureeye-authd`: the daemon owns the camera and the
+  face models, so the app never opens the camera itself and needs no
+  administrator rights to manage your own models. A login always takes
+  priority; an enrollment or test running in the app is stopped when a login
+  needs the camera.
+- `secureEye re-enroll` replaces your face models after a change of recognizer,
+  and keeps the models of the previous one so switching back still works.
+- `--json` output for `list`, `remove`, `clear`, `disable`, `set` and
+  `version`, for scripts.
+
+### Changed
+
+- Face models carry the recognizer that made them, and a login never compares
+  models from different recognizers. If yours no longer match the configured
+  one, the login says so and asks you to run `secureEye re-enroll`.
+- Face model files are stored in a new format. Existing files keep working
+  and are converted the first time they are changed; older releases cannot
+  read converted files, so downgrading after that means enrolling again.
+- Face models are owned by the `secureeye` daemon user and are no longer
+  readable by other users.
+- The daemon's socket is open to all users, and each request is checked
+  against the user who sent it: you can only log in as, or manage the models
+  of, yourself (root can do both for anyone). Screen lockers that run PAM as
+  the logged-in user can now reach the daemon.
+- The daemon handles several requests at once, so a client that stalls no
+  longer holds up everyone else.
+
+### Fixed
+
+- Face login failed every time on systems with NumPy 2 (`only 0-dimensional
+  arrays can be converted to Python scalars`).
+
+
 ## [0.2.1] - 2026-08-19
 
 ### Fixed

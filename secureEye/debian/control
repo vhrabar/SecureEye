@@ -13,7 +13,13 @@ Build-Depends:
  python3,
  libpam0g-dev,
  libevdev-dev,
- libinih-dev
+ libinih-dev,
+ qt6-base-dev,
+ qt6-base-dev-tools,
+ qt6-declarative-dev,
+ qt6-declarative-dev-tools,
+ desktop-file-utils,
+ appstream
 Vcs-Git: https://github.com/vhrabar/secureEye
 
 Package: secure-eye
@@ -46,3 +52,27 @@ Description: SecureEye face authentication for Linux
  python3-dlib is the alternative, selectable via detector_backend in
  /etc/secureEye/config.ini. On architectures without mediapipe, set
  detector_backend = dlib.
+
+Package: secure-eye-gui
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ secure-eye (= ${binary:Version}),
+ qml6-module-org-kde-kirigami,
+ qml6-module-qtqml-workerscript,
+ qml6-module-qtquick-controls,
+ qml6-module-qtquick-layouts,
+ qml6-module-qtquick-window
+Recommends:
+ qml6-module-org-kde-desktop,
+ breeze-icon-theme,
+ pkexec
+Description: SecureEye face authentication for Linux - management app
+ A Qt/Kirigami app for SecureEye: enroll face models with a live camera
+ preview, test recognition against the certainty threshold, switch face login
+ on and off, edit the configuration and control the secureeye-authd service.
+ .
+ The camera and the face models are handled by secureeye-authd; the app talks
+ to it over its UNIX socket and never opens the camera itself. Saving the
+ configuration and switching face login go through pkexec.

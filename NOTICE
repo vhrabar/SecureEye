@@ -5,7 +5,12 @@ Copyright © 2026 Vedran Hrabar
 This project is derived from [Howdy](https://github.com/boltgolt/howdy),
 originally licensed under the MIT License.
 
+Copyright (c) 2018 boltgolt
+
 Portions of the original codebase have been modified and extended.
 All new code and modifications are licensed under GNU GPLv2.
 
 The original MIT license text is included in `/licenses/MIT.txt`.
+
+The SecureEye logo and README banners were generated with AI assistance and are
+released under the same license as the project.

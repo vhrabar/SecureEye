@@ -1,0 +1,5 @@
+# Face models belong to the daemon user: secureeye-authd reads them during
+# login, and root writes them through the CLI. Z also takes over models that
+# older releases wrote as root.
+d @user_models_dir@ 0700 secureeye secureeye -
+Z @user_models_dir@ - secureeye secureeye -

@@ -17,16 +17,27 @@ py_paths = configure_file(
 
 py_sources = [
     'authd/__init__.py',
+    'authd/access.py',
+    'authd/camera.py',
     'authd/main.py',
+    'authd/manage.py',
     'authd/protocol.py',
-    'authd/server.py',
     'auth/__init__.py',
+    'auth/capture.py',
+    'auth/enrollment.py',
+    'auth/recognition_probe.py',
     'auth/detector_factory.py',
     'auth/errors.py',
     'auth/frame_ops.py',
+    'auth/interfaces.py',
+    'auth/legacy/__init__.py',
+    'auth/legacy/dlib_backend.py',
+    'auth/legacy/mediapipe_backend.py',
     'auth/matching.py',
     'auth/model_store.py',
+    'auth/pipeline.py',
     'auth/session.py',
+    'auth/template_store.py',
     'auth/types.py',
     'auth/ui_bridge.py',
     'cli/__init__.py',
@@ -34,7 +45,10 @@ py_sources = [
     'cli/clear.py',
     'cli/config.py',
     'cli/disable.py',
+    'cli/enrollment.py',
     'cli/list.py',
+    'cli/output.py',
+    'cli/re_enroll.py',
     'cli/remove.py',
     'cli/set.py',
     'cli/snap.py',
@@ -73,6 +87,9 @@ pam_module_conf_data.set('compare_script_path', join_paths(pysourcesinstalldir, 
 pam_module_conf_data.set('authd_socket_path', get_option('authd_socket_path'))
 pam_module_conf_data.set('config_file_path', config_path)
 subdir('pam')
+if get_option('install_gui')
+    subdir('gui')
+endif
 if get_option('install_pam_config')
     # pamdir is inherited from the pam subproject
     pam_config = configure_file(
@@ -106,7 +123,6 @@ else
     )
 endif
 
-install_data('logo.png', install_tag: 'meta')
 autocomplete = configure_file(
     input: 'autocomplete/secureEye.in',
     output: 'autocomplete',
@@ -158,11 +174,33 @@ install_data(
     install_tag : 'systemd',
 )
 
+systemd_tmpfiles_dir = join_paths(get_option('prefix'), 'lib', 'tmpfiles.d')
+if systemd.found()
+    systemd_tmpfiles_dir = systemd.get_variable(
+        pkgconfig : 'tmpfilesdir',
+        default_value : systemd_tmpfiles_dir,
+    )
+endif
+
+authd_tmpfiles = configure_file(
+    input : 'systemd/secureeye-tmpfiles.conf.in',
+    output : 'secure-eye.conf',
+    configuration : configuration_data({
+                                           'user_models_dir' : paths_dict.get('user_models_dir'),
+                                       }),
+)
+install_data(
+    authd_tmpfiles,
+    install_dir : systemd_tmpfiles_dir,
+    install_mode : 'rw-r--r--',
+    install_tag : 'systemd',
+)
+
 # if get_option('fetch_dlib_data')
 #     downloader = find_program('wget')
 #     bunzip2 = find_program('bunzip2')
 
-#     links = [ 
+#     links = [
 #         'https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2',
 #         'https://github.com/davisking/dlib-models/raw/master/mmod_human_face_detector.dat.bz2',
 #         'https://github.com/davisking/dlib-models/raw/master/shape_predictor_5_face_landmarks.dat.bz2'
@@ -220,3 +258,19 @@ install_data(
   install_dir: get_option('bindir'),
   install_tag: 'bin',
 )
+
+if get_option('with_polkit')
+    polkit_policy = configure_file(
+        input: 'polkit/com.github.vhrabar.secureeye.policy.in',
+        output: 'com.github.vhrabar.secureeye.policy',
+        configuration: configuration_data({
+            'cli_path': join_paths(get_option('prefix'), get_option('bindir'), bin_name),
+        }),
+    )
+    install_data(
+        polkit_policy,
+        install_mode: 'rw-r--r--',
+        install_dir: join_paths(get_option('prefix'), get_option('datadir'), 'polkit-1', 'actions'),
+        install_tag: 'polkit',
+    )
+endif

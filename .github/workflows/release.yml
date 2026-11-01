@@ -40,7 +40,7 @@ jobs:
       tag: ${{ steps.ver.outputs.tag }}
       publish: ${{ steps.ver.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -96,10 +96,10 @@ jobs:
     name: Tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -107,16 +107,16 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Ruff
         run: uv run --no-sync ruff check .
 
-      - name: Black
-        run: uv run --no-sync black --check .
+      - name: Ruff format
+        run: uv run --no-sync ruff format --check .
 
       - name: Pytest
-        run: uv run pytest tests/ -v
+        run: uv run --no-sync pytest tests/ -v
 
   verify-deb:
     name: Verify deb (${{ matrix.name }})
@@ -128,18 +128,19 @@ jobs:
         include:
           - name: amd64
             runner: ubuntu-24.04
+            image: ubuntu:26.04
+            gui: true
           - name: arm64
             runner: ubuntu-24.04-arm
+            image: ubuntu:26.04
+            gui: true
+          # noble has no Kirigami for Qt 6; the PPA builds it without secure-eye-gui (NO_GUI_SERIES), and so does this
+          - name: amd64-noble
+            runner: ubuntu-24.04
+            image: ubuntu:24.04
+            gui: false
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            debhelper devscripts dpkg-dev build-essential fakeroot lintian \
-            meson ninja-build pkg-config \
-            libpam0g-dev libevdev-dev libinih-dev python3
+      - uses: actions/checkout@v7
 
       - name: Set packaging version to ${{ needs.version.outputs.version }}
         run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
@@ -149,22 +150,34 @@ jobs:
           cp -r secureEye/debian ./debian
           rm -rf secureEye/debian
 
-      - name: Build packages
-        run: dpkg-buildpackage -b -us -uc
+      - name: Drop the GUI package
+        if: ${{ !matrix.gui }}
+        run: python3 scripts/debian-without-gui.py debian
 
-      # dpkg-buildpackage writes the artifacts to the parent directory.
-      - name: Collect artifacts
+      # In a container of the target release: the runner's own Ubuntu is too old to build the GUI.
+      - name: Build packages (${{ matrix.image }})
         run: |
-          mkdir -p dist
-          mv ../*.deb ../*.ddeb dist/ 2>/dev/null || true
-          ls -la dist
-
-      - name: Lintian
-        run: lintian --fail-on error --tag-display-limit 0 dist/*.deb
+          docker run --rm -v "$PWD:/src" -w /src "${{ matrix.image }}" bash -euxc '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends \
+              debhelper devscripts dpkg-dev build-essential fakeroot lintian equivs
+            mk-build-deps --install --remove \
+              --tool "apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes" debian/control
+            rm -f ./*.buildinfo ./*.changes
+            dpkg-buildpackage -b -us -uc
+            # dpkg-buildpackage writes the artifacts to the parent directory.
+            mkdir -p dist
+            mv ../*.deb dist/
+            mv ../*.ddeb dist/ 2>/dev/null || true
+            ls -la dist
+            lintian --fail-on error --tag-display-limit 0 dist/*.deb
+            chown -R "$(stat -c %u:%g /src)" dist debian
+          '
 
       - name: Install smoke test
         run: |
-          docker run --rm -v "$PWD/dist:/debs:ro" "$UBUNTU_IMAGE" bash -euc '
+          docker run --rm -v "$PWD/dist:/debs:ro" -e GUI="${{ matrix.gui }}" "${{ matrix.image }}" bash -euc '
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
             apt-get install -y --no-install-recommends software-properties-common
@@ -178,10 +191,23 @@ jobs:
             ls /usr/lib/*/security/pam_secureEye.so
             test -x /usr/bin/secureEye
             test -f /etc/secureEye/config.ini
+            # The GUI is its own package, so secure-eye alone must not bring it in.
+            test ! -e /usr/bin/secureeye-gui
+            if [ "$GUI" = true ]; then
+              apt-get install -y --no-install-recommends /debs/secure-eye-gui_*.deb
+              test -x /usr/bin/secureeye-gui
+              test -f /usr/share/applications/io.github.vhrabar.SecureEye.desktop
+              test -f /usr/share/icons/hicolor/scalable/apps/io.github.vhrabar.SecureEye.svg
+              test -f /usr/share/metainfo/io.github.vhrabar.SecureEye.metainfo.xml
+              # Every library it links against is installed
+              ! ldd /usr/bin/secureeye-gui | grep "not found"
+            else
+              ! ls /debs/secure-eye-gui_*.deb 2>/dev/null
+            fi
             echo "deb install smoke test passed."
           '
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deb-${{ matrix.name }}
           path: dist/*
@@ -201,7 +227,7 @@ jobs:
           - name: aarch64
             runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -229,10 +255,14 @@ jobs:
             ls /usr/lib64/security/pam_secureEye.so
             test -x /usr/bin/secureEye
             test -f /etc/secureEye/config.ini
+            rpm -q secure-eye-gui
+            test -x /usr/bin/secureeye-gui
+            test -f /usr/share/applications/io.github.vhrabar.SecureEye.desktop
+            test -f /usr/share/metainfo/io.github.vhrabar.SecureEye.metainfo.xml
             echo "rpm install smoke test passed."
           '
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rpm-${{ matrix.name }}
           path: dist/*.rpm
@@ -244,9 +274,12 @@ jobs:
     needs: [ version, test ]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Set packaging version to ${{ needs.version.outputs.version }}
+        run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
 
       - name: Stage a build tree
         env:
@@ -266,7 +299,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/src" -w /src -e VERSION "$ARCH_IMAGE" bash -euxc '
             pacman -Syu --noconfirm --needed \
-              base-devel meson ninja pkgconf pam libevdev libinih git pacman-contrib
+              base-devel meson ninja pkgconf pam libevdev libinih qt6-base qt6-declarative \
+              git pacman-contrib
             useradd -m builder
             chown -R builder /src/archbuild
             su builder -c "
@@ -284,6 +318,12 @@ jobs:
             test -x /usr/bin/secureEye
             test -f /etc/secureEye/config.ini
             test -f /usr/lib/sysusers.d/secure-eye.conf
+            test ! -e /usr/bin/secureeye-gui
+            pacman -U --noconfirm -dd "/src/archbuild/secure-eye-gui-$VERSION-1-"*.pkg.tar.zst
+            test -x /usr/bin/secureeye-gui
+            test -f /usr/share/applications/io.github.vhrabar.SecureEye.desktop
+            test -f /usr/share/icons/hicolor/scalable/apps/io.github.vhrabar.SecureEye.svg
+            test -f /usr/share/metainfo/io.github.vhrabar.SecureEye.metainfo.xml
             echo "arch install smoke test passed."
           '
 
@@ -296,7 +336,7 @@ jobs:
           fi
           echo ".SRCINFO is in sync."
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: arch-x86_64
           path: archbuild/*.pkg.tar.zst
@@ -312,7 +352,7 @@ jobs:
       name: launchpad-ppa
       url: https://launchpad.net/~vhrabar/+archive/ubuntu/tools
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
 
@@ -332,7 +372,8 @@ jobs:
           DEBFULLNAME: "Vedran Hrabar"
 
           DEBIAN_DIR: "secureEye/debian"
-          SERIES: "questing resolute stonking"
+          SERIES: "noble resolute stonking tenacious"
+          NO_GUI_SERIES: "noble"
 
           NEW_VERSION_TEMPLATE: "{VERSION}~{SERIES}{REVISION}"
 
@@ -392,7 +433,7 @@ jobs:
       name: aur
       url: https://aur.archlinux.org/packages/secure-eye
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
 

@@ -1,6 +1,18 @@
+import os
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path, PurePath
 from types import SimpleNamespace
+
+_PATH_NAMES = ("config_dir", "dlib_data_dir", "user_models_dir", "log_path", "data_dir")
+
+# Development escape hatch: point the runtime at a sandbox instead of the
+_ENV_OVERRIDES = {
+    "config_dir": "SECUREEYE_CONFIG_DIR",
+    "dlib_data_dir": "SECUREEYE_DLIB_DATA_DIR",
+    "user_models_dir": "SECUREEYE_MODELS_DIR",
+    "log_path": "SECUREEYE_LOG_PATH",
+    "data_dir": "SECUREEYE_DATA_DIR",
+}
 
 
 def _load_generated_paths_module():
@@ -29,7 +41,16 @@ def _default_paths():
     )
 
 
-paths = _load_generated_paths_module() or _default_paths()
+def _apply_env_overrides(resolved):
+    values = {name: getattr(resolved, name) for name in _PATH_NAMES}
+    for name, env_var in _ENV_OVERRIDES.items():
+        override = os.environ.get(env_var)
+        if override:
+            values[name] = PurePath(override)
+    return SimpleNamespace(**values)
+
+
+paths = _apply_env_overrides(_load_generated_paths_module() or _default_paths())
 
 models = [
     "shape_predictor_5_face_landmarks.dat",

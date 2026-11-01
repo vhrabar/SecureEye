@@ -13,6 +13,8 @@ changelog="$root/secureEye/debian/changelog"
 spec="$root/secureEye/rpm/secure-eye.spec"
 pkgbuild="$root/secureEye/archlinux/secureEye/PKGBUILD"
 changelog_md="$root/CHANGELOG.md"
+pyproject="$root/pyproject.toml"
+meson="$root/meson.build"
 
 msg="${CHANGELOG_MSG:-New upstream release ${version}.}"
 name="${DEBFULLNAME:-Vedran Hrabar}"
@@ -186,4 +188,37 @@ if [ -n "${SRC_SHA256:-}" ]; then
     echo "PKGBUILD: pkgver -> $version, sha256sums[0] -> $SRC_SHA256"
 else
     echo "PKGBUILD: pkgver -> $version (sha256sums left untouched)"
+fi
+
+srcinfo="$(dirname "$pkgbuild")/.SRCINFO"
+if [ -f "$srcinfo" ]; then
+    sed -i -E \
+        -e "s/^(\tpkgver = ).*/\1${version}/" \
+        -e "s/^(\tpkgrel = ).*/\11/" \
+        -e "s#^(\tsource = secure-eye-)[^:]*(\.tar\.gz::.*/archive/v)[^/]*(\.tar\.gz)\$#\1${version}\2${version}\3#" \
+        -e "s/^(\tdepends = secure-eye=).*/\1${version}/" \
+        "$srcinfo"
+    grep -qE "^\s*pkgver = ${version}$" "$srcinfo" \
+        || { echo "::error::failed to set pkgver in $srcinfo" >&2; exit 1; }
+    echo ".SRCINFO: pkgver -> $version"
+fi
+
+# --- pyproject / meson ----------------------------------------------------
+
+sed -i -E "0,/^version = \"[^\"]*\"/s//version = \"${version}\"/" "$pyproject"
+grep -q "^version = \"${version}\"" "$pyproject" \
+    || { echo "::error::failed to set version in $pyproject" >&2; exit 1; }
+echo "pyproject.toml: version -> $version"
+
+sed -i -E "1s/version : '[^']*'/version : '${version}'/" "$meson"
+grep -q "version : '${version}'" "$meson" \
+    || { echo "::error::failed to set version in $meson" >&2; exit 1; }
+echo "meson.build: version -> $version"
+
+# uv.lock records the project version, so `uv sync --locked` fails until it is refreshed.
+if command -v uv >/dev/null 2>&1; then
+    (cd "$root" && uv lock --quiet)
+    echo "uv.lock: refreshed"
+else
+    echo "::warning::uv not found; run 'uv lock' so uv.lock matches $version"
 fi

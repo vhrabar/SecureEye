@@ -11,6 +11,11 @@
 
 These pre-check outcomes remain unchanged in daemon architecture.
 
+The model-file check only applies when PAM can see the models directory. That
+directory is `0700 secureeye`, so a PAM stack running as the user (a screen
+locker) gets `EACCES` and skips the check; authd then answers `10` (no face
+model) without opening the camera.
+
 ## B. Daemon response mapping
 
 | authd `result_code` | Meaning                       | PAM Return     |
@@ -32,4 +37,3 @@ Fail closed:
 - send/receive fails -> `PAM_AUTH_ERR`
 - IPC timeout expires -> `PAM_AUTH_ERR`
 - response parse/version check fails -> `PAM_AUTH_ERR`
-

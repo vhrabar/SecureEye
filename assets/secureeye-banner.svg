@@ -1,0 +1,49 @@
+<svg width="1280" height="360" viewBox="0 0 1280 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SecureEye — Windows Hello–style facial authentication for Linux">
+  <title>SecureEye</title>
+  <desc>Windows Hello–style facial authentication for Linux using modern computer vision.</desc>
+
+  <defs>
+    <clipPath id="card">
+      <rect x="0" y="0" width="1280" height="360" rx="28"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#card)">
+    <rect x="0" y="0" width="1280" height="360" fill="#1e2327"/>
+
+    <!-- faint aperture watermark -->
+    <g opacity="0.05" stroke="#2dd4bf" stroke-width="8" fill="none">
+      <circle cx="1120" cy="180" r="230"/>
+      <circle cx="1120" cy="180" r="150"/>
+      <circle cx="1120" cy="180" r="70"/>
+    </g>
+
+    <!-- icon: aperture-iris, center (210,180) -->
+    <circle cx="210" cy="180" r="92" fill="none" stroke="#f1f5f9" stroke-width="8"/>
+    <g stroke="#2dd4bf" stroke-width="7" stroke-linecap="round">
+      <line x1="244" y1="180" x2="256" y2="260"/>
+      <line x1="227" y1="209" x2="164" y2="260"/>
+      <line x1="193" y1="209" x2="118" y2="180"/>
+      <line x1="176" y1="180" x2="164" y2="100"/>
+      <line x1="193" y1="151" x2="256" y2="100"/>
+      <line x1="227" y1="151" x2="302" y2="180"/>
+    </g>
+    <polygon points="244,180 227,209 193,209 176,180 193,151 227,151"
+             fill="none" stroke="#f1f5f9" stroke-width="6" stroke-linejoin="round"/>
+    <circle cx="210" cy="180" r="15" fill="#2dd4bf"/>
+
+    <!-- wordmark -->
+    <text x="372" y="176" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="82" font-weight="600" letter-spacing="-1">
+      <tspan fill="#f1f5f9">Secure</tspan><tspan fill="#2dd4bf">Eye</tspan>
+    </text>
+
+    <!-- accent underline -->
+    <rect x="374" y="196" width="120" height="4" rx="2" fill="#2dd4bf"/>
+
+    <!-- tagline -->
+    <text x="374" y="240" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">Windows Hello–style facial authentication for Linux</text>
+
+    <!-- meta row -->
+    <text x="374" y="282" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace" font-size="19" letter-spacing="1" fill="#5eead4">PAM · computer vision · biometrics</text>
+  </g>
+</svg>

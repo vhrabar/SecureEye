@@ -1,0 +1,32 @@
+# https://editorconfig.org
+# Line limits follow the formatters: ruff (pyproject.toml) and clang-format (.clang-format).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.py]
+max_line_length = 100
+
+[*.{cc,cpp,cxx,h,hh,hpp,qml}]
+max_line_length = 120
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[{Makefile,*.mk,secureEye/debian/rules,PKGBUILD}]
+indent_style = tab
+
+[secureEye/src/pam/subprojects/**]
+indent_style = unset
+indent_size = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset

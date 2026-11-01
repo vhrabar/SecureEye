@@ -29,14 +29,13 @@ def generate(frames, text_lines):
         snap, 0, len(text_lines) * 20 + 40, 0, 0, cv2.BORDER_CONSTANT, value=pad_color
     )
 
-    # Add the SecureEye logo if there's space to do so
-    if len(frames) > 1:
-        # Load the logo from file
-        logo = cv2.imread(paths_factory.logo_path())
-        # Calculate the position of the logo
-        logo_y = frame_height + 20
-        logo_x = frame_width * len(frames) - 210
-
+    # Add the SecureEye logo if there's space to do so. It is no longer shipped, so a missing (or odd-sized) file
+    # just leaves it out instead of failing the snapshot, and with it the login it belongs to.
+    logo = cv2.imread(paths_factory.logo_path()) if len(frames) > 1 else None
+    logo_y = frame_height + 20
+    logo_x = frame_width * len(frames) - 210
+    fits = logo_y + 57 <= snap.shape[0] and logo_x >= 0
+    if logo is not None and logo.shape[:2] == (57, 180) and fits:
         # Overlay the logo on top of the image
         snap[logo_y : logo_y + 57, logo_x : logo_x + 180] = logo
 

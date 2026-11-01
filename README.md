@@ -1,348 +1,207 @@
+<!-- Light mode -->
+![Logo (light)](assets/secureeye-banner-light.svg#gh-light-mode-only)
+
+<!-- Dark mode -->
+![Logo (dark)](assets/secureeye-banner.svg#gh-dark-mode-only)
 # SecureEye
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/pytests.yml?style=for-the-badge&label=tests&logo=pytest&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/pytests.yml)
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/)
 
 [![Latest release](https://img.shields.io/github/v/release/vhrabar/SecureEye?include_prereleases&sort=semver&style=for-the-badge&logo=github)](https://github.com/vhrabar/SecureEye/releases)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#status)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-orange?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
-Modern face recognition authentication for Linux using PAM.
-
----
+Face recognition login for Linux, through PAM.
 
 ## Overview
 
-SecureEye is a clean, modern reimplementation of facial authentication for Linux systems. It enables users to
-authenticate via face recognition while maintaining a modular, secure, and maintainable architecture.
-
-This project is inspired by the Howdy project but is being redesigned with updated technologies, improved structure, and long-term maintainability in mind.
-
----
+SecureEye lets you authenticate with your face anywhere PAM is used: `sudo`, login, the lock screen, polkit. It
+started as a rework of [Howdy](https://github.com/boltgolt/howdy) and keeps its CLI, but splits the work in two: a
+small C/C++ PAM module, and the `secureeye-authd` daemon, which runs as its own unprivileged service account and owns
+the camera and the face models. The module only talks to the daemon over a UNIX socket, so no Python or recognition
+code runs inside the process that is authenticating you.
 
 ## Features
 
-* Face recognition-based authentication
-* PAM (Pluggable Authentication Modules) integration
-* Modular recognition pipeline
-* CLI tools for user management
-* Designed for modern Python environments
-
----
+* Face login for any PAM service, falling back to your password when recognition fails or times out
+* mediapipe (default, x86_64 only) or dlib recognition backend, chosen in the config
+* `secureEye` CLI to enroll, list and remove face models and to test the camera
+* Desktop app to enroll with a live preview, run a recognition test against the `certainty` threshold and edit the
+  configuration
+* Native packages for Ubuntu, Fedora/RHEL and Arch; the daemon runs on the system Python, with no bundled virtualenv
 
 ## Status
 
-Early development. Core architecture and modules are being actively built.
-
----
+Alpha. It works for daily use, but the config format and the daemon protocol may still change between releases.
 
 ## Installation
 
-### Building from Source
+SecureEye is packaged for Ubuntu (PPA), Fedora and RHEL (COPR) and Arch (AUR) as two packages: `secure-eye` is the
+PAM module, the `secureeye-authd` daemon and the `secureEye` CLI; `secure-eye-gui` is the optional app. See
+[docs/installation.md](docs/installation.md) for RHEL, manual and from-source builds, and what each package sets up.
 
-#### Dependencies
-
-These mirror the package `Build-Depends` in `secureEye/debian/control`:
-
-- Meson 0.64 or higher, Ninja, pkg-config, a C++ compiler (`build-essential`)
-- Python 3 (`python3`)
-- `libpam0g-dev`, `libevdev-dev`, `libinih-dev` (INIReader is provided by
-  `libinih-dev`; it is **not** downloaded, the build runs with
-  `--wrap-mode=nodownload`)
-
-#### Install Dependencies
-
-On **Debian / Ubuntu**:
-
-```bash
-sudo apt-get update && sudo apt-get install -y \
-    meson ninja-build pkg-config build-essential \
-    python3 \
-    libpam0g-dev libinih-dev libevdev-dev
-```
-
-On **Arch Linux** (`libinih` provides `INIReader`, `pam` provides the PAM headers):
-
-```bash
-sudo pacman -S --needed base-devel meson ninja pkgconf \
-    python python-pip pam libinih libevdev
-```
-
-#### Build
-
-```bash
-meson setup build
-meson compile -C build
-```
-
-> [!WARNING]
-> Do **not** run `meson install` on a machine where you also use the packaged
-> builds (`.deb`, `.rpm` or the AUR package). Meson's default prefix is
-> `/usr/local`, and `/usr/local/lib/...` shadows the packaged `/usr/lib/...`
-> systemd unit (and `/usr/local/bin` shadows `/usr/bin`), which breaks the
-> daemon and CLI. A bare `meson install` also does **not** pull in the
-> recognition backends (`python3-mediapipe` / `python3-dlib`) that the packages
-> depend on, so the daemon will not start. For a working system install, build
-> and install your distribution's packages below.
-
-### Debian / Ubuntu & derivatives
-
-SecureEye ships as a single `secure-eye` package containing the C/C++ PAM
-module, the `secureeye-authd` daemon, the Python recognition runtime and the
-`secureEye` CLI. It replaces the older `libpam-secureeye` / `secureeye-authd`
-split, so `apt` swaps those out on upgrade.
-
-The recognition backends are ordinary packages rather than a bundled
-virtualenv, and they live in `ppa:vhrabar/tools`, so add that repository first
-either way:
+**Ubuntu** (24.04 or newer; the app needs 26.04 or newer). The daemon is started for you:
 
 ```bash
 sudo add-apt-repository ppa:vhrabar/tools
 sudo apt update
-sudo apt install secure-eye
+sudo apt install secure-eye secure-eye-gui
 ```
 
-- `python3-mediapipe` — the default backend, **amd64 only**
-- `python3-dlib` — the alternative backend, available on every architecture
-
-
-Unlike the RPM and Arch packages, the Debian package enables and starts
-`secureeye-authd.service` for you on install.
-
-### Fedora, RHEL & RPM-based systems
-
-SecureEye ships as a single `secure-eye` package containing the C/C++ PAM
-module, the `secureeye-authd` daemon, the Python recognition runtime and the
-`secureEye` CLI. It obsoletes the older `libpam-secureeye` / `secureeye-authd`
-split, so `dnf` swaps those out on upgrade.
-
-The recognition backends are ordinary packages rather than a bundled
-virtualenv, and they live in the
-[`vhrabar/python-extras`](https://copr.fedorainfracloud.org/coprs/vhrabar/python-extras/)
-COPR, so enable it alongside the
-[SecureEye COPR](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/):
-
-- `python3-mediapipe` — the default backend, **x86_64 only**
-- `python3-dlib` — the alternative backend, available on every architecture
-
-On **Fedora**:
+**Fedora**:
 
 ```bash
 sudo dnf copr enable vhrabar/SecureEye
-sudo dnf copr enable vhrabar/python-extras
-sudo dnf install secure-eye
-```
-
-On **RHEL / CentOS Stream / Rocky / AlmaLinux** (enable EPEL first for the `copr`
-plugin and dependencies):
-
-```bash
-sudo dnf install epel-release
-sudo dnf copr enable vhrabar/SecureEye
-sudo dnf install secure-eye
-```
-
-The package ships no systemd preset, so `%systemd_post` leaves the unit
-disabled. Start it yourself:
-
-```bash
+sudo dnf install secure-eye secure-eye-gui
 sudo systemctl enable --now secureeye-authd.service
 ```
 
-On architectures without `python3-mediapipe` (anything other than x86_64),
-switch the backend before first use with `sudo secureEye config`.
-
-> [!NOTE]
-> On Fedora/RHEL there is no `pam-auth-update`, so the PAM module is **not**
-> enabled automatically. Enable it as shown in **Usage step 3b** below (the
-> Debian-only `pam-auth-update` / `common-auth` steps do not apply).
-
-### Arch Linux & derivatives
-
-SecureEye is packaged for the AUR as a single `secure-eye` package containing
-the C/C++ PAM module, the `secureeye-authd` daemon, the Python recognition
-runtime and the `secureEye` CLI. It replaces the older `libpam-secureeye` /
-`secureeye-authd` split, so pacman swaps those out on upgrade.
-
-With an AUR helper:
+**Arch Linux** (AUR):
 
 ```bash
-paru -S secure-eye   # or: yay -S ...
-```
-
-Or manually with `makepkg` (the recognition backends `python-dlib` and
-`python-mediapipe` also come from the AUR and are built first):
-
-```bash
-git clone https://aur.archlinux.org/secure-eye.git
-cd secure-eye
-makepkg -si
-```
-
-The packaging sources also live in this repository, under
-`secureEye/archlinux/secureEye/`:
-
-```bash
-cd secureEye/archlinux/secureEye
-makepkg -si
-```
-
-As with the `.deb` and `.rpm` packages, the Arch build does **not** bundle a
-recognition virtualenv: every dependency is a real package and the daemon runs
-on the system interpreter, so there is nothing to rebuild after a Python
-upgrade. `python-mediapipe` is the default backend and is x86_64 only;
-`python-dlib` is the alternative. On other architectures set
-`detector_backend = dlib` in `/etc/secureEye/config.ini` before first use.
-
-Following Arch policy, the service is **not** started for you:
-
-```bash
+paru -S secure-eye secure-eye-gui   # or: yay -S ...
 sudo systemctl enable --now secureeye-authd.service
 ```
 
-> [!NOTE]
-> Arch has neither `pam-auth-update` nor `authselect`, so the PAM module is
-> **not** enabled automatically. Enable it as shown in **Usage step 3c** below.
-
----
+Leave out `secure-eye-gui` on machines without a desktop. The default recognition backend, mediapipe, is x86_64
+only; on other architectures set `detector_backend = dlib` with `sudo secureEye config` before first use.
 
 ## Usage
 
-**1. Set your camera device.** The default config ships with `device_path = none`,
-so recognition does nothing until you point it at a real capture device. Open the
-config and set `device_path` (e.g. `/dev/video0`):
+**1. Set your camera device.** The default config ships with `device_path = none`, so recognition does nothing until
+you point it at a real capture device. Open the config and set `device_path` (e.g. `/dev/video0`):
 
 ```bash
 sudo secureEye config
 ```
 
-You can list capture-capable nodes with `v4l2-ctl --list-devices`. After changing
-the device, restart the daemon: `sudo systemctl restart secureeye-authd`.
+You can list capture-capable nodes with `v4l2-ctl --list-devices`. After changing the device, restart the daemon:
+`sudo systemctl restart secureeye-authd`.
 
-**2. Enroll your face.** SecureEye needs to learn your face so it can recognise
-you later:
+**2. Enroll your face.** SecureEye needs a model of your face to recognise you later:
 
 ```bash
 sudo secureEye add
 ```
 
-**3. Make sure the PAM profile is enabled.**
+**3. Make sure the PAM module is enabled.**
 
-**3a) Ubuntu / Debian.** It is normally enabled automatically on install, but
-`pam-auth-update` will skip a profile it has already "seen" from a previous
-install. Verify (and enable if needed):
+On Ubuntu and Debian it is enabled on install; check it with:
 
 ```bash
 grep -q pam_secureEye.so /etc/pam.d/common-auth && echo enabled || sudo pam-auth-update --enable secureEye.pam-config
 ```
 
-**3b) Fedora / RHEL.** There is no `pam-auth-update`; enable the module with an
-authselect custom profile:
-
-```bash
-sudo authselect create-profile secureeye -b local
-# Add this line near the top of the auth section of
-# /etc/authselect/custom/secureeye/{system,password}-auth:
-#   auth  sufficient  pam_secureEye.so
-sudo authselect select custom/secureeye --force
-```
-
-Or, for a single service (e.g. `sudo` only), add to `/etc/pam.d/sudo`:
+On Fedora and Arch you enable it yourself. For `sudo` only, add this as the first `auth` line of `/etc/pam.d/sudo`:
 
 ```
 auth  sufficient  pam_secureEye.so
 ```
 
-Do **not** edit `/etc/pam.d/system-auth` directly as authselect overwrites it.
+To use it everywhere (login, lock screen, polkit), see
+[Enabling the PAM module](docs/installation.md#enabling-the-pam-module): an authselect profile on Fedora,
+`/etc/pam.d/system-auth` on Arch.
 
-**3c) Arch Linux.** There is no `pam-auth-update` and no `authselect`; edit the PAM stack yourself. For a single service
-(recommended, e.g. `sudo` only), add this as the **first** `auth` line of `/etc/pam.d/sudo`:
+**Or use the app.** Start SecureEye from your application menu, or run `secureeye-gui` as your normal user (not with
+`sudo`):
 
-```
-auth  sufficient  pam_secureEye.so
-```
+- the Dashboard shows whether face login is on, whether the daemon is running and whether the configured camera is
+  found
+- Face models → Enroll captures a model with a live camera preview; closing the dialog turns the camera off right away
+- Run recognition test shows, frame by frame, how close you come to the `certainty` threshold; use it to tune
+  `certainty` or to see whether you need another model, e.g. one with glasses
+- Configuration edits `/etc/secureEye/config.ini`; saving asks for your password through polkit
 
-To cover every service that includes it (login, `sudo`, display-manager greeters, `polkit`), add the same line at the
-top of the `auth` section of
-`/etc/pam.d/system-auth` instead. That file belongs to the `pam` package, so back it up and re-apply your change when
-pacman leaves a `system-auth.pacnew`
-after an upgrade.
+The app talks to `secureeye-authd`, which owns the camera and the face models, so the daemon has to be running. You
+can only manage your own face models. Step 3 (enabling the PAM module) still has to be done once.
 
-**4. Try it.** Open a new terminal and run `sudo -i` — you should be able to
-authenticate by showing your face. If face auth fails or times out, SecureEye
-falls back to your password. Please check
-[this wiki page](https://github.com/vhrabar/SecureEye/wiki/Common-issues) if
-you're experiencing problems or
-[search](https://github.com/vhrabar/SecureEye/issues) for similar issues.
+**4. Try it.** Open a new terminal and run `sudo -i`; you should be able to authenticate by showing your face. If
+face auth fails or times out, SecureEye falls back to your password. If something doesn't work, check
+[Common issues](https://github.com/vhrabar/SecureEye/wiki/Common-issues) on the wiki or
+[search the issues](https://github.com/vhrabar/SecureEye/issues).
 
 ## CLI
 
-The installer adds a `secureEye` command to manage face models for the current user. Use `secureEye --help` or
-`man secureEye` to list the available options.
-
-Usage:
+The `secureEye` command manages face models for the current user. Run `secureEye --help` or `man secureEye` for all
+options.
 
 ```
 secureEye [-U user] [-y] command [argument]
 ```
 
-| Command    | Description                                 |
-|------------|---------------------------------------------|
-| `add`      | Add a new face model for a user             |
-| `clear`    | Remove all face models for a user           |
-| `config`   | Open the config file in your default editor |
-| `disable`  | Disable or enable SecureEye                 |
-| `list`     | List all saved face models for a user       |
-| `remove`   | Remove a specific model for a user          |
-| `set`      | Set a config option (`secureEye set certainty 3`) |
-| `snapshot` | Take a snapshot of your camera input        |
-| `test`     | Test the camera and recognition methods     |
-| `version`  | Print the current version number            |
-
----
+| Command     | Description                                                              |
+|-------------|--------------------------------------------------------------------------|
+| `add`       | Add a new face model for a user                                          |
+| `clear`     | Remove all face models for a user                                        |
+| `config`    | Open the config file in your default editor                              |
+| `disable`   | Disable or enable SecureEye                                              |
+| `list`      | List all saved face models for a user                                    |
+| `re-enroll` | Recapture a user's face models under the currently configured recognizer |
+| `remove`    | Remove a specific model for a user                                       |
+| `set`       | Set a config option (`secureEye set certainty 3`)                        |
+| `snapshot`  | Take a snapshot of your camera input                                     |
+| `test`      | Test the camera and recognition methods                                  |
+| `version`   | Print the current version number                                         |
 
 ## Development
 
-### Architecture docs
+### Docs
 
+- Installation details and building from source: [docs/installation.md](docs/installation.md)
 - PAM/authd split overview: [docs/auth-architecture.md](docs/auth-architecture.md)
 - IPC protocol contract: [docs/auth-protocol-v1.md](docs/auth-protocol-v1.md)
+- Management protocol used by the app: [docs/auth-protocol-v2.md](docs/auth-protocol-v2.md)
 - PAM return-code mapping: [docs/pam-behavior-matrix.md](docs/pam-behavior-matrix.md)
 
 ### Requirements
 
 * Python 3.12+
-* [uv](https://docs.astral.sh/uv/) — `uv sync` provisions the environment; see
-  the [Contributing guide](CONTRIBUTING.md)
+* [uv](https://docs.astral.sh/uv/): `uv sync` sets up the environment; see the [Contributing guide](CONTRIBUTING.md)
 
-### Docker PAM Automation
+### Running the app against a development daemon
 
-Use the Compose `pam-smoke` service to run an automated in-container PAM flow without touching host PAM.
+`tools/dev/gui-sandbox.sh` builds the app, starts `secureeye-authd` from this checkout as your user on its own socket,
+with the config and face models in `.devroot/`, and runs the app against it. The installed daemon and `/etc` are not
+touched. Saving the configuration and the face login switch are blocked in the sandbox, since they would write to
+`/etc` through pkexec.
 
-`smoke` flow (build/install + PAM patch + sudo check):
+```bash
+tools/dev/gui-sandbox.sh
+```
+
+### PAM tests in Docker
+
+The Compose `pam-smoke` service runs the PAM flow inside a container, without touching the host's PAM config.
+
+`smoke` (build and install, patch PAM, check `sudo`):
 
 ```bash
 docker compose --profile pam build pam-smoke
 docker compose --profile pam run --rm pam-smoke
 ```
 
-`full` flow (smoke + `secureEye add` + `secureEye test`):
+`full` (`smoke`, then `secureEye add` and `secureEye test`):
 
 ```bash
 PAM_FLOW=full docker compose --profile pam run --rm pam-smoke
 ```
 
-Interactive flow (prompts for user/password/device and optional add/test):
+`interactive` (prompts for user, password and device, with optional add/test):
 
 ```bash
 PAM_FLOW=interactive docker compose --profile pam run --rm pam-smoke
 ```
 
-Override camera device if needed:
+To use a different camera:
 
 ```bash
 SECUREEYE_VIDEO_DEVICE=/dev/video0 docker compose --profile pam run --rm pam-smoke
 ```
+
+## Contributing
+
+Contributions are welcome; see the [Contributing guide](CONTRIBUTING.md).
 
 ## License
 
@@ -350,25 +209,15 @@ This project is licensed under the GNU General Public License v2.0.
 
 Copyright © 2026 Vedran Hrabar
 
-It includes code derived from the Howdy project, which is licensed under the MIT License.
-See the NOTICE file and `/licenses/MIT.txt` for details.
+It includes code derived from the Howdy project, which is licensed under the MIT License. See the [NOTICE](NOTICE)
+file and [licenses/MIT.txt](licenses/MIT.txt) for details. Howdy's original authors and contributors are credited in
+the preserved Git history.
 
----
+## AI usage
 
-## Attribution
-
-This project is inspired by the Howdy project.
-Original authors and contributors are credited via the preserved Git history.
-
----
-
-## Contributing
-
-Contributions are welcome, check the [Contributing guide](CONTRIBUTING.md) for guidelines.
-
----
+- The project icon and banner were made with Claude Design.
+- Claude Code was used for debugging and for proofreading the docs.
 
 ## Disclaimer
 
-This software interacts with system authentication mechanisms.
-Use with caution and at your own risk.
+This software interacts with system authentication mechanisms. Use it with caution and at your own risk.

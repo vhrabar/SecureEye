@@ -1,11 +1,8 @@
-"""Authentication session extracted from legacy compare flow."""
-
 from __future__ import annotations
 
 import _thread as thread
 import configparser
 import cv2
-import numpy as np
 import os
 import threading
 import time
@@ -15,12 +12,13 @@ from typing import Any
 import paths_factory
 import snapshot
 from i18n import _
-from recorders.video_capture import VideoCapture
-from .detector_factory import create_detector, DetectorFactoryError
+from . import template_store
+from .capture import FrameObserver, FrameReport, FrameState, FrameStream, normalized_boxes
+from .detector_factory import create_pipeline, DetectorFactoryError
 from .errors import ExitCode
-from .frame_ops import apply_rotation_mode, darkness_percent, maybe_scale
-from .matching import best_match, is_match
-from .model_store import EmptyModelStore, ModelFileNotFound, ModelSchemaError, load_user_models
+from .pipeline import FaceMatch, Pipeline
+from .template_store import TemplateSet, TemplateSpaceMismatch, TemplateStoreError
+from .interfaces import Face, Frame
 from .types import RuntimeStats
 from .ui_bridge import AuthUiBridge
 
@@ -28,52 +26,66 @@ from .ui_bridge import AuthUiBridge
 class AuthSession:
     """Run one end-to-end authentication attempt for a user."""
 
-    def __init__(self, config_path: str | None = None, ui_bridge: AuthUiBridge | None = None):
+    def __init__(
+        self,
+        config_path: str | None = None,
+        ui_bridge: AuthUiBridge | None = None,
+        on_frame: FrameObserver | None = None,
+    ):
+        """
+        :param config_path: config.ini to read, defaults to the installed one
+        :param ui_bridge: receiver for the legacy M/S status text
+        :param on_frame: called with a FrameReport for every frame read; an observer that
+            raises cancels the session (e.g. because its client went away)
+        """
         self.config_path = config_path or paths_factory.config_file_path()
         self.ui = ui_bridge
+        self.on_frame = on_frame
         self.timings: dict[str, float] = {"st": time.time()}
         self._cancel_event = threading.Event()
         self._state_lock = threading.Lock()
-        self._video_capture: VideoCapture | None = None
+        self._stream: FrameStream | None = None
 
     def cancel(self) -> None:
         """Request cooperative stop and release camera resources as soon as possible."""
         self._cancel_event.set()
         with self._state_lock:
-            if self._video_capture is not None:
-                try:
-                    self._video_capture.release()
-                except Exception:
-                    pass
+            if self._stream is not None:
+                self._stream.release()
 
     def run(self, user: str) -> int:
         if not user:
             return int(ExitCode.ABORT)
 
-        try:
-            models, encodings = load_user_models(user)
-        except (ModelFileNotFound, EmptyModelStore, ModelSchemaError):
-            return int(ExitCode.NO_FACE_MODEL)
-
         config = configparser.ConfigParser()
         config.read(self.config_path)
+
+        # The templates have to match the embedding space of the active
+        # pipeline, so the config decides which ones we can even load.
+        try:
+            templates = template_store.load(user, model_id=template_store.active_model_id(config))
+        except TemplateSpaceMismatch as exc:
+            # Distinct from "no models": the user has models, they are just
+            # unusable here, and only re-enrolling fixes that.
+            print(str(exc))
+            return int(ExitCode.TEMPLATE_MODEL_MISMATCH)
+        except TemplateStoreError:
+            return int(ExitCode.NO_FACE_MODEL)
 
         gtk_stdout = config.getboolean("debug", "gtk_stdout", fallback=False)
         self.ui = self.ui or AuthUiBridge(enabled_stdout=gtk_stdout)
         self.ui.start()
 
         try:
-            return self._run_loop(config, models, encodings)
+            return self._run_loop(config, templates)
         finally:
             self.ui.close()
 
-    def _run_loop(self, config, models, encodings) -> int:  # noqa: C901
+    def _run_loop(self, config, templates: TemplateSet) -> int:  # noqa: C901
         save_failed = config.getboolean("snapshots", "save_failed", fallback=False)
         save_successful = config.getboolean("snapshots", "save_successful", fallback=False)
         end_report = config.getboolean("debug", "end_report", fallback=False)
         timeout = config.getint("video", "timeout", fallback=4)
-        dark_threshold = config.getfloat("video", "dark_threshold", fallback=60.0)
-        rotate = config.getint("video", "rotate", fallback=0)
         video_certainty = config.getfloat("video", "certainty", fallback=3.5) / 10
 
         self._send_ui("M", _("Starting up..."))
@@ -84,20 +96,24 @@ class AuthSession:
             print(detector_error)
             return 1
 
+        try:
+            pipeline = Pipeline(detector_bundle, templates, video_certainty)
+        except ValueError as exc:
+            print(str(exc))
+            return int(ExitCode.TEMPLATE_MODEL_MISMATCH)
+
         self.timings["ic"] = time.time()
-        video_capture = VideoCapture(config)
+        stream = FrameStream(config)
         with self._state_lock:
-            self._video_capture = video_capture
+            self._stream = stream
+        # cancel() may have run before the stream existed
+        if self._cancel_event.is_set():
+            stream.release()
         self.timings["ic"] = time.time() - self.timings["ic"]
+        video_capture = stream.video_capture
+        dark_threshold = stream.dark_threshold
 
         exposure = config.getint("video", "exposure", fallback=-1)
-        max_height = config.getfloat("video", "max_height", fallback=320.0)
-        height = video_capture.internal.get(cv2.CAP_PROP_FRAME_HEIGHT) or 1
-        if rotate == 2:
-            height = video_capture.internal.get(cv2.CAP_PROP_FRAME_WIDTH) or 1
-        scaling_factor = (max_height / height) or 1
-
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         self._send_ui("M", _("Identifying you..."))
 
         stats = RuntimeStats()
@@ -128,51 +144,68 @@ class AuthSession:
                         return int(ExitCode.TOO_DARK)
                     return int(ExitCode.TIMEOUT_REACHED)
 
-                frame, gsframe = video_capture.read_frame()
-                gsframe = clahe.apply(gsframe)
+                captured = stream.read()
+                frame = captured.frame
 
                 if (save_failed or save_successful) and len(snapframes) < 3:
-                    snapframes.append(frame)
+                    snapframes.append(captured.raw)
 
-                darkness, hist_total = darkness_percent(gsframe)
-                if hist_total == 0 or darkness == 100:
+                if captured.state is FrameState.BLACK:
                     stats.black_tries += 1
+                    self._report(captured.index, FrameState.BLACK, captured.darkness, stream, frame)
                     continue
 
-                dark_running_total += darkness
+                dark_running_total += captured.darkness
                 stats.valid_frames += 1
 
-                if darkness > dark_threshold:
+                if captured.state is FrameState.DARK:
                     stats.dark_tries += 1
+                    self._report(captured.index, FrameState.DARK, captured.darkness, stream, frame)
                     continue
 
-                frame, gsframe = maybe_scale(frame, gsframe, scaling_factor)
-                frame, gsframe = apply_rotation_mode(frame, gsframe, rotate, stats.frames)
+                faces = pipeline.detect(captured.gsframe)
+                accepted: FaceMatch | None = None
+                best: float | None = None
+                for face in faces:
+                    result = pipeline.match(frame, face)
+                    if result.row >= 0:
+                        stats.lowest_certainty = min(stats.lowest_certainty, result.distance)
+                        best = result.distance if best is None else min(best, result.distance)
+                    if result.accepted:
+                        accepted = result
+                        break
 
-                for face_location in detector_bundle.detector.detect(gsframe):
-                    face_encoding = np.asarray(
-                        detector_bundle.detector.encode(frame, face_location),
-                        dtype=np.float32,
-                    )
-                    match_index, match = best_match(encodings, face_encoding)
-                    stats.lowest_certainty = min(stats.lowest_certainty, match)
+                self._report(
+                    captured.index,
+                    self._face_state(faces, accepted),
+                    captured.darkness,
+                    stream,
+                    frame,
+                    faces=faces,
+                    distance=best,
+                    certainty=video_certainty,
+                )
 
-                    if not is_match(match, video_certainty):
-                        continue
-
+                if accepted is not None:
                     self.timings["tt"] = time.time() - self.timings["st"]
                     self.timings["fl"] = time.time() - self.timings["fr"]
 
                     if end_report:
                         self._print_end_report(
-                            models, match_index, match, stats, video_capture, frame, height
+                            templates,
+                            accepted.row,
+                            accepted.distance,
+                            stats,
+                            video_capture,
+                            frame,
+                            stream.native_height,
                         )
 
                     if save_successful:
                         self._make_snapshot(_("SUCCESSFUL"), snapframes, stats)
 
                     stamp_code = self._run_rubberstamps_if_enabled(
-                        config, detector_bundle, video_capture, clahe
+                        config, detector_bundle, video_capture, stream.clahe
                     )
                     if stamp_code is not None:
                         return stamp_code
@@ -187,12 +220,45 @@ class AuthSession:
             return int(ExitCode.ABORT)
         finally:
             with self._state_lock:
-                if self._video_capture is not None:
-                    try:
-                        self._video_capture.release()
-                    except Exception:
-                        pass
-                    self._video_capture = None
+                self._stream = None
+            stream.release()
+
+    @staticmethod
+    def _face_state(faces: list[Face], accepted: FaceMatch | None) -> FrameState:
+        if accepted is not None:
+            return FrameState.MATCH
+        if not faces:
+            return FrameState.NO_FACE
+        return FrameState.MULTIPLE if len(faces) > 1 else FrameState.FACE
+
+    def _report(
+        self,
+        index: int,
+        state: FrameState,
+        darkness: float,
+        stream: FrameStream,
+        frame: Frame,
+        faces: list[Face] | None = None,
+        distance: float | None = None,
+        certainty: float | None = None,
+    ) -> None:
+        if self.on_frame is None:
+            return
+        report = FrameReport(
+            index=index,
+            elapsed=time.time() - self.timings["fr"],
+            state=state,
+            darkness=darkness,
+            dark_threshold=stream.dark_threshold,
+            faces=normalized_boxes(faces or [], frame),
+            # Pipeline works on certainty / 10; report on the config.ini scale
+            distance=None if distance is None else distance * 10,
+            certainty=None if certainty is None else certainty * 10,
+        )
+        try:
+            self.on_frame(report, frame)
+        except Exception:
+            self.cancel()
 
     def _init_detector_async(self, config):
         holder: dict[str, Any] = {"bundle": None, "error": None}
@@ -203,7 +269,7 @@ class AuthSession:
 
         def _target():
             try:
-                holder["bundle"] = create_detector(config)
+                holder["bundle"] = create_pipeline(config)
                 self.timings["ll"] = time.time() - self.timings["ll"]
             except FileNotFoundError:
                 print(_("Data files have not been downloaded, please run the following commands:"))
@@ -288,7 +354,9 @@ class AuthSession:
         if self.ui is not None:
             self.ui.send(kind, message)
 
-    def _print_end_report(self, models, match_index, match, stats, video_capture, frame, height):
+    def _print_end_report(
+        self, templates: TemplateSet, match_index, match, stats, video_capture, frame, height
+    ):
         def print_timing(label, key):
             print("  %s: %dms" % (label, round(self.timings[key] * 1000)))
 
@@ -321,9 +389,9 @@ class AuthSession:
         print(_("Dark frames ignored: %d ") % (stats.dark_tries,))
         print(_("Certainty of winning frame: %.3f") % (match * 10,))
 
-        if 0 <= match_index < len(models):
-            print(
-                _('Winning model: %d ("%s")') % (match_index, models[match_index].get("label", "?"))
-            )
+        # match_index addresses a row of the stacked matrix, not a template.
+        owner = templates.owner_of(match_index)
+        if owner is not None:
+            print(_('Winning model: %d ("%s")') % (owner.id, owner.label or "?"))
         else:
             print(_("Winning model index: %d") % match_index)

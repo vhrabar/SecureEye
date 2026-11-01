@@ -1,6 +1,6 @@
 # Security Policy
 
-SecureEye interacts directly with system authentication. It is designed with security in mind, but using facial 
+SecureEye interacts directly with system authentication. It is designed with security in mind, but using facial
 recognition introduces inherent risks.
 
 ---

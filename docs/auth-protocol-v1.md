@@ -14,9 +14,10 @@ Any protocol mismatch is treated as an authentication failure (`PAM_AUTH_ERR`) o
 ## 2. Socket and ownership
 
 - Path: `/run/secureeye/authd.sock`
-- Daemon owner/group: `root:secureeye`
-- Socket mode: `0660`
-- Only authorized peers may connect.
+- Daemon user/group: `secureeye:secureeye`
+- Socket mode: `0666`, so screen lockers that run PAM as the user can connect
+- Authorization is per request, from the client's `SO_PEERCRED` uid: root may authenticate any user, every other uid
+  only itself. A refused request gets `result_code = 99` with `detail = "forbidden"`.
 
 ## 3. Framing
 
@@ -128,4 +129,3 @@ PAM transport/protocol failures are fail-closed per project policy:
 - Daemon must use peer credential checks (`SO_PEERCRED`) where available.
 - Daemon must not trust unbounded strings; apply strict length checks before processing.
 - All parser failures are non-fatal to daemon process and isolated to request scope.
-

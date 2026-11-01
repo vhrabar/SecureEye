@@ -1,37 +1,46 @@
 import configparser
-import json
 import os
 import signal
 import socket
-import struct
 import sys
 import syslog
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-from dataclasses import dataclass
 
 import paths_factory
 from auth import ExitCode, AuthSession
-from auth.detector_factory import create_detector
+from auth.detector_factory import create_pipeline
+from authd import manage
+from authd.access import may_act_for, peer_uid
+from authd.camera import CameraArbiter, CameraUse
+from authd.protocol import (
+    MANAGE_VERSION,
+    PROTO_VERSION,
+    read_frame,
+    validate_auth_request,
+    write_frame,
+)
 
 SOCKET_PATH = os.environ.get("SECUREEYE_AUTHD_SOCKET", "/run/secureeye/authd.sock")
-PROTO_VERSION = 1
-MAX_PAYLOAD = 4096
-DEFAULT_DEADLINE_MS = 2500
 INTERNAL_ERROR_CODE = 99
 
 # time between the daemon's own worker deadline and the client's transport deadline
 RESPONSE_MARGIN_MS = 700
 
+# a client must deliver its whole request frame within this window
+READ_TIMEOUT_S = 1.0
+WRITE_TIMEOUT_S = 1.0
 
-@dataclass
-class AuthRequest:
-    id: str
-    username: str
-    service: str
-    tty: str
-    rhost: str
-    deadline_ms: int
+# concurrent connections; extra clients are closed immediately (PAM fails closed)
+MAX_CLIENTS = 8
+
+# how long shutdown waits for in-flight handlers before exiting
+SHUTDOWN_GRACE_S = 2.0
+
+# The camera can only be held by one session. It is released by the worker that ran the
+# session, not by the handler, so a timed-out session keeps it until it has really let go.
+_camera = CameraArbiter()
 
 
 def _prepare_socket(socket_path: str) -> socket.socket:
@@ -47,143 +56,54 @@ def _prepare_socket(socket_path: str) -> socket.socket:
         pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(socket_path)
-    os.chmod(socket_path, 0o660)
+    # anyone may connect: screen lockers run PAM as the user, not as root. What a
+    # client may ask for is checked per request against its SO_PEERCRED uid.
+    os.chmod(socket_path, 0o666)
     sock.listen(64)
     return sock
 
 
-def _read_socket(conn: socket.socket, size: int) -> bytes:
-    """
-    Read a fixed-size chunk from the client.
-    :param conn: the client connection
-    :size: number of bytes to read
-    :return: the read bytes
-    :raises ConnectionError: if the peer closed the connection before sending all data
-    """
-    data = bytearray()
-    while len(data) < size:
-        chunk = conn.recv(size - len(data))
-        if not chunk:
-            raise ConnectionError("peer closed connection")
-        data.extend(chunk)
-    return bytes(data)
-
-
-def _read_frame(conn: socket.socket) -> dict:
-    """
-    Read input frame from the client.
-    :param conn: the client connection
-    :return: the parsed payload as a dict
-    :raises ValueError: if the frame is invalid
-    """
-    header = _read_socket(conn, 4)
-    (length,) = struct.unpack("!I", header)
-    if length < 1 or length > MAX_PAYLOAD:
-        raise ValueError("invalid frame length")
-
-    body = _read_socket(conn, length)
-    try:
-        payload = json.loads(body.decode("utf-8"))
-    except Exception as exc:
-        raise ValueError("invalid utf8/json") from exc
-
-    if not isinstance(payload, dict):
-        raise ValueError("payload must be object")
-    return payload
-
-
-def _validate_payload(payload: dict) -> AuthRequest:
-    """
-    Validate the payload of an incoming request.
-    :param payload: the payload to validate
-    :return: the validated payload as an AuthRequest object
-    :raises ValueError: if the payload is invalid
-    """
-
-    # validate header
-    if payload.get("v") != PROTO_VERSION:
-        raise ValueError("unsupported protocol version")
-    if payload.get("type") != "auth_request":
-        raise ValueError("invalid message type")
-
-    # Protocol v1 uses request_id; keep `id` as legacy fallback.
-    request_id = str(payload.get("request_id", payload.get("id", "")))
-    username = str(payload.get("username", ""))
-    service = str(payload.get("service", ""))
-    tty = str(payload.get("tty", ""))
-    rhost = str(payload.get("rhost", ""))
-    deadline_ms = int(payload.get("deadline_ms", DEFAULT_DEADLINE_MS))
-
-    # validate body content
-    if not (1 <= len(request_id) <= 64):
-        raise ValueError("invalid id")
-    if not (1 <= len(username) <= 64):
-        raise ValueError("invalid username")
-    if len(service) > 64 or len(tty) > 128 or len(rhost) > 256:
-        raise ValueError("invalid metadata lengths")
-    if not (100 <= deadline_ms <= 30000):
-        raise ValueError("invalid deadline_ms")
-
-    # return validated payload
-    return AuthRequest(
-        id=request_id,
-        username=username,
-        service=service,
-        tty=tty,
-        rhost=rhost,
-        deadline_ms=deadline_ms,
-    )
-
-
-def _write_frame(conn: socket.socket, payload: dict) -> None:
-    """
-    Send response to the client.
-    :param conn: the client connection
-    :param payload: the response payload
-    :return: None
-    """
-    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
-    if len(data) > MAX_PAYLOAD:
-        raise ValueError("response payload too large")
-    conn.sendall(struct.pack("!I", len(data)) + data)
-
-
-def _handle_client(conn: socket.socket, peer: str) -> None:
+def _handle_client(conn: socket.socket) -> None:
     """
     Handle an incoming client connection.
     :param conn: the client connection
-    :param peer: the peer address
     :return: None
     """
     try:
+        uid = peer_uid(conn)
+
         # load & validate payload
-        payload = _read_frame(conn)
-        req = _validate_payload(payload)
+        payload = read_frame(conn, time.monotonic() + READ_TIMEOUT_S)
+        conn.settimeout(WRITE_TIMEOUT_S)
+        if payload.get("v") == MANAGE_VERSION:
+            manage.handle(conn, uid, payload, _camera)
+            return
+        req = validate_auth_request(payload)
 
-        worker_timeout = max(0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0)
+        if not may_act_for(uid, req.username):
+            syslog.syslog(
+                syslog.LOG_WARNING,
+                f"secureeye-authd: uid {uid} may not authenticate {req.username!r}",
+            )
+            write_frame(
+                conn,
+                {
+                    "v": PROTO_VERSION,
+                    "type": "auth_response",
+                    "request_id": req.id,
+                    "result_code": INTERNAL_ERROR_CODE,
+                    "detail": "forbidden",
+                },
+            )
+            return
 
-        # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
-        session = AuthSession()
-        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secureeye-auth")
-        try:
-            future = pool.submit(session.run, req.username)
-            try:
-                code = int(future.result(timeout=worker_timeout))
-            except FutureTimeoutError:
-                session.cancel()
-                future.cancel()
-                code = int(ExitCode.TIMEOUT_REACHED)
-            except BaseException as exc:
-                # Legacy code paths may call sys.exit(code); never let that kill authd.
-                if isinstance(exc, SystemExit) and isinstance(exc.code, int):
-                    code = int(exc.code)
-                else:
-                    code = INTERNAL_ERROR_CODE
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
+        worker_deadline = time.monotonic() + max(
+            0.1, (req.deadline_ms - RESPONSE_MARGIN_MS) / 1000.0
+        )
+        code = _run_session(req.username, worker_deadline)
 
         # send response
-        _write_frame(
+        write_frame(
             conn,
             {
                 "v": PROTO_VERSION,
@@ -196,7 +116,7 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
     # fail-closed connection
     except BaseException:
         try:
-            _write_frame(
+            write_frame(
                 conn,
                 {
                     "v": PROTO_VERSION,
@@ -210,6 +130,91 @@ def _handle_client(conn: socket.socket, peer: str) -> None:
             pass
 
 
+def _run_session(username: str, deadline: float) -> int:
+    """
+    Run one auth session while holding the camera, bounded by deadline.
+    :param username: the user to authenticate
+    :param deadline: time.monotonic() value by which a result code must be returned
+    :return: the session's exit code
+    """
+    session = AuthSession()
+    if not _camera.acquire(CameraUse.AUTH, session, deadline - time.monotonic()):
+        return int(ExitCode.TIMEOUT_REACHED)
+
+    # Run auth in a worker and do not block daemon shutdown waiting for timed-out requests.
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secureeye-auth")
+    try:
+        future = pool.submit(session.run, username)
+    except BaseException:
+        _camera.release(session)
+        pool.shutdown(wait=False)
+        raise
+    future.add_done_callback(lambda _future: _camera.release(session))
+    try:
+        return int(future.result(timeout=max(0.0, deadline - time.monotonic())))
+    except FutureTimeoutError:
+        session.cancel()
+        future.cancel()
+        return int(ExitCode.TIMEOUT_REACHED)
+    except BaseException as exc:
+        # Legacy code paths may call sys.exit(code); never let that kill authd.
+        if isinstance(exc, SystemExit) and isinstance(exc.code, int):
+            return int(exc.code)
+        return INTERNAL_ERROR_CODE
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def _serve_client(conn: socket.socket, slots: threading.BoundedSemaphore) -> None:
+    """
+    Handle one connection on its own thread, then free its slot.
+    :param conn: the client connection
+    :param slots: semaphore bounding concurrent connections
+    :return: None
+    """
+    try:
+        with conn:
+            _handle_client(conn)
+    finally:
+        slots.release()
+
+
+def serve(srv: socket.socket, stop: threading.Event) -> None:
+    """
+    Accept connections until stop is set, handling each on its own thread.
+    :param srv: a bound, listening socket
+    :param stop: event that ends the accept loop
+    :return: None
+    """
+    slots = threading.BoundedSemaphore(MAX_CLIENTS)
+    workers: set[threading.Thread] = set()
+    srv.settimeout(0.5)
+    try:
+        while not stop.is_set():
+            try:
+                conn, _ = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            if not slots.acquire(blocking=False):
+                conn.close()
+                continue
+            worker = threading.Thread(
+                target=_serve_client,
+                args=(conn, slots),
+                name="secureeye-client",
+                daemon=True,
+            )
+            worker.start()
+            workers = {w for w in workers if w.is_alive()}
+            workers.add(worker)
+    finally:
+        grace_end = time.monotonic() + SHUTDOWN_GRACE_S
+        for worker in workers:
+            worker.join(max(0.0, grace_end - time.monotonic()))
+
+
 def _warm_detector() -> None:
     """
     Build (and cache) the configured detector before serving requests.
@@ -217,7 +222,7 @@ def _warm_detector() -> None:
     try:
         config = configparser.ConfigParser()
         config.read(paths_factory.config_file_path())
-        create_detector(config)
+        create_pipeline(config)
     except Exception as exc:
         syslog.syslog(
             syslog.LOG_WARNING,
@@ -239,16 +244,7 @@ def main() -> int:
 
     # start listening
     try:
-        while not stop.is_set():
-            srv.settimeout(0.5)
-            try:
-                conn, _ = srv.accept()
-            except socket.timeout:
-                continue
-            except OSError:
-                break
-            with conn:
-                _handle_client(conn, "local")
+        serve(srv, stop)
     # handle failure (fc)
     finally:
         try:

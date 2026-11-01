@@ -255,7 +255,8 @@ meson setup --wipe /tmp/build-pam /workspace \
   -Dconfig_dir=/opt/secureeye/etc/howdy \
   -Duser_models_dir=/opt/secureeye/etc/howdy/models \
   -Dpython_path="$PYTHON_BIN" \
-  -Dinstall_pam_config=false
+  -Dinstall_pam_config=false \
+  -Dinstall_gui=false
 meson compile -C /tmp/build-pam
 meson install -C /tmp/build-pam
 
@@ -330,4 +331,3 @@ if [[ "$DROP_TO_BASH" == "1" ]]; then
   echo "Opening bash shell (DROP_TO_BASH=1)."
   exec bash
 fi
-

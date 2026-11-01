@@ -65,6 +65,7 @@ if [[ -n "$EXTRA_SERIES" ]]; then
     SERIES="$EXTRA_SERIES $SERIES"
 fi
 
+requested_series_list=$SERIES
 ordered_series=""
 for known_series in $(distro-info --all); do
     for requested_series in $SERIES; do
@@ -75,6 +76,13 @@ for known_series in $(distro-info --all); do
     done
 done
 SERIES="${ordered_series# }"
+
+for requested_series in $requested_series_list; do
+    if [[ " $SERIES " != *" $requested_series "* ]]; then
+        echo "Unknown Ubuntu series '$requested_series' (distro-info-data $(dpkg-query -W -f='${Version}' distro-info-data 2>/dev/null))." >&2
+        exit 1
+    fi
+done
 
 if [[ -z "$REVISION" ]]; then
     REVISION=1
@@ -106,6 +114,8 @@ ppa_archive="${repository_name#*/}"
 
 workspace="${GITHUB_WORKSPACE:-$PWD}"
 
+# The pattern is a glob on purpose; let it expand.
+# shellcheck disable=SC2206
 resolve_one_path() {
     local label=$1
     local pattern=$2
@@ -223,6 +233,11 @@ for s in $SERIES; do
         fi
     fi
 
+    # Series listed in NO_GUI_SERIES cannot build the GUI (no Kirigami for Qt 6); build them without secure-eye-gui.
+    if [[ " ${NO_GUI_SERIES:-} " == *" $s "* ]]; then
+        python3 "$workspace/scripts/debian-without-gui.py" debian
+    fi
+
     # Extract the package name from the debian changelog
     package=$(dpkg-parsechangelog --show-field Source)
     pkg_version=$(dpkg-parsechangelog --show-field Version | cut -d- -f1)
@@ -296,6 +311,9 @@ for s in $SERIES; do
             ;;
     esac
 
+    # NOTE: $GPG_PASSPHRASE ends up unquoted inside the -p command string, so a
+    # passphrase with spaces or glob characters breaks signing.
+    # shellcheck disable=SC2027,SC2086
     debuild -S "$source_upload_option" \
         -k"$GPG_KEY_ID" \
         -p"gpg --batch --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback"

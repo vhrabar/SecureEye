@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -55,4 +55,3 @@ COPY docker/entrypoint-pam-sudo-smoke.sh /usr/local/bin/entrypoint-pam-sudo-smok
 RUN chmod +x /usr/local/bin/entrypoint-pam-sudo-smoke.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint-pam-sudo-smoke.sh"]
-

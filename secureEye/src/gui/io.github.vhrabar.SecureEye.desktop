@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=SecureEye
+GenericName=Face Authentication
+Comment=Manage face login, face models and the SecureEye service
+Exec=secureeye-gui
+Icon=io.github.vhrabar.SecureEye
+Terminal=false
+StartupNotify=true
+Categories=Qt;KDE;Settings;Security;
+Keywords=face;login;authentication;camera;biometric;unlock;
