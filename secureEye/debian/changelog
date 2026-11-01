@@ -1,3 +1,15 @@
+secure-eye (0.3.1) unstable; urgency=medium
+
+  * Fixed
+    - Ubuntu packages for resolute, stonking and tenacious failed to build
+      on Launchpad: the Debian source package left out every directory named
+      `tests`, including the app's own test sources, which the build needs.
+    - Fedora COPR builds for RHEL 10 and AlmaLinux 10 failed, because their
+      meson is too old for the app. Those two now get `secure-eye` without
+      `secure-eye-gui`; Fedora and CentOS Stream still get both.
+
+ -- Vedran Hrabar <vedran.hrabar@outlook.com>  Sun, 01 Nov 2026 00:00:00 +0000
+
 secure-eye (0.3.0) unstable; urgency=medium
 
   * Added

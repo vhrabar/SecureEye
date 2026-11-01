@@ -14,7 +14,7 @@
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
-%{!?pkg_version:%global pkg_version 0.3.0}
+%{!?pkg_version:%global pkg_version 0.3.1}
 
 
 %undefine __brp_python_bytecompile
@@ -194,6 +194,15 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.vhrabar.Sec
 %endif
 
 %changelog
+* Sun Nov 01 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.1-1
+- Fixed: Ubuntu packages for resolute, stonking and tenacious failed to
+  build on Launchpad: the Debian source package left out every directory
+  named `tests`, including the app's own test sources, which the build
+  needs.
+- Fixed: Fedora COPR builds for RHEL 10 and AlmaLinux 10 failed, because
+  their meson is too old for the app. Those two now get `secure-eye` without
+  `secure-eye-gui`; Fedora and CentOS Stream still get both.
+
 * Sun Nov 01 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.0-1
 - Added: `secure-eye-gui`, the SecureEye app, as its own package on
   Debian/Ubuntu, Fedora and Arch, so headless installs of `secure-eye` pull
