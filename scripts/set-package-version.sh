@@ -190,6 +190,19 @@ else
     echo "PKGBUILD: pkgver -> $version (sha256sums left untouched)"
 fi
 
+srcinfo="$(dirname "$pkgbuild")/.SRCINFO"
+if [ -f "$srcinfo" ]; then
+    sed -i -E \
+        -e "s/^(\tpkgver = ).*/\1${version}/" \
+        -e "s/^(\tpkgrel = ).*/\11/" \
+        -e "s#^(\tsource = secure-eye-)[^:]*(\.tar\.gz::.*/archive/v)[^/]*(\.tar\.gz)\$#\1${version}\2${version}\3#" \
+        -e "s/^(\tdepends = secure-eye=).*/\1${version}/" \
+        "$srcinfo"
+    grep -qE "^\s*pkgver = ${version}$" "$srcinfo" \
+        || { echo "::error::failed to set pkgver in $srcinfo" >&2; exit 1; }
+    echo ".SRCINFO: pkgver -> $version"
+fi
+
 # --- pyproject / meson ----------------------------------------------------
 
 sed -i -E "0,/^version = \"[^\"]*\"/s//version = \"${version}\"/" "$pyproject"
