@@ -54,7 +54,7 @@ bundle = load_pipeline(config)
 
 ensure_models_dir()
 
-label = ask_label(_("Model #") + str(template_store.next_id(templates)))
+label = ask_label(_("Model #") + str(template_store.peek_next_id(user, templates)))
 
 embedding = capture_embedding(config, bundle)
 

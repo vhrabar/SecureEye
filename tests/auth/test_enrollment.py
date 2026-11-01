@@ -103,6 +103,22 @@ def test_capture_rejects_multiple_faces():
     assert capture.releases == 1
 
 
+def test_capture_skips_a_frame_with_a_second_face():
+    session, capture = _session(frames=[BRIGHT], faces=[[NEAR, FAR], [], [NEAR]])
+
+    outcome = session.capture()
+
+    assert outcome.result is EnrollResult.SUCCESS
+    np.testing.assert_allclose(outcome.embedding.vector, [0.9, 0.0])
+    assert capture.releases == 1
+
+
+def test_capture_reports_multiple_faces_over_no_face():
+    session, _ = _session(frames=[BRIGHT], faces=[[NEAR, FAR], []], max_frames=5)
+
+    assert session.capture().result is EnrollResult.MULTIPLE_FACES
+
+
 def test_capture_without_face_gives_up_after_max_frames():
     session, capture = _session(frames=[BRIGHT], faces=[[]], max_frames=5)
 

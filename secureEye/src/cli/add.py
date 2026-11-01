@@ -37,8 +37,8 @@ if len(templates) > 3:
 if not builtins.secureEye_args.plain:
     print(_("Adding face model for the user ") + user)
 
-# some id's can be skipped, but the last id is always the maximum
-next_id = template_store.next_id(templates)
+# ids can have gaps, and removed ones are not given out again
+next_id = template_store.peek_next_id(user, templates)
 
 # Get the label from the cli arguments if provided
 if builtins.secureEye_args.arguments:

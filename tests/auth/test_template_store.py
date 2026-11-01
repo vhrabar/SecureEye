@@ -459,6 +459,42 @@ class TestHelpers:
         assert template_store.find(templates, 0).label == "Initial model"
         assert template_store.find(templates, 99) is None
 
+    def test_next_id_takes_the_highest_id_whatever_the_order(self, store):
+        _write_raw(
+            store,
+            "ada",
+            [
+                {"id": 5, "label": "a", "data": [_vector(0.1)]},
+                {"id": 1, "label": "b", "data": [_vector(0.2)]},
+            ],
+        )
+
+        template = template_store.append(
+            "ada", model_id=LEGACY_MODEL_ID, label="c", embeddings=_vector(0.3)
+        )
+
+        assert template.id == 6
+
+    def test_removed_newest_id_is_not_given_out_again(self, store):
+        for label in ("a", "b", "c"):
+            template_store.append("ada", model_id=SFACE, label=label, embeddings=_vector(0.1))
+        templates = template_store.load_all("ada")
+        template_store.save("ada", [t for t in templates if t.id != 2])
+
+        assert template_store.peek_next_id("ada", template_store.load_all("ada")) == 3
+        template = template_store.append("ada", model_id=SFACE, label="d", embeddings=_vector(0.2))
+
+        assert template.id == 3
+        assert [t.id for t in template_store.load_all("ada")] == [0, 1, 3]
+
+    def test_ignores_a_bogus_stored_next_id(self, store):
+        template_store.append("ada", model_id=SFACE, label="a", embeddings=_vector(0.1))
+        payload = json.loads((store / "ada.dat").read_text(encoding="utf-8"))
+        payload["next_id"] = True
+        _write_raw(store, "ada", payload)
+
+        assert template_store.peek_next_id("ada", template_store.load_all("ada")) == 1
+
 
 class TestActiveModelId:
     def _config(self, **sections) -> configparser.ConfigParser:

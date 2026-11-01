@@ -144,6 +144,9 @@ def save(user: str, templates: Sequence[Template]) -> None:
     path = _path_for(user)
     payload = {
         "version": STORE_VERSION,
+        # High-water mark, so removing the newest model does not free its id
+        # for the next one while a GUI or CLI may still hold the old list
+        "next_id": max(next_id(templates), _stored_next_id(path)),
         "templates": [_serialize(template) for template in templates],
     }
     _write_json(path, payload)
@@ -180,7 +183,11 @@ def append(
     """
     existing = _load_or_empty(user)
     template = _build(
-        existing, model_id=model_id, label=label, embeddings=embeddings, created=created
+        peek_next_id(user, existing),
+        model_id=model_id,
+        label=label,
+        embeddings=embeddings,
+        created=created,
     )
     save(user, [*existing, template])
     return template
@@ -210,7 +217,11 @@ def replace_space(
     """
     existing = _load_or_empty(user)
     template = _build(
-        existing, model_id=model_id, label=label, embeddings=embeddings, created=created
+        peek_next_id(user, existing),
+        model_id=model_id,
+        label=label,
+        embeddings=embeddings,
+        created=created,
     )
     kept = [other for other in existing if other.model_id != model_id]
     save(user, [*kept, template])
@@ -225,7 +236,7 @@ def _load_or_empty(user: str) -> list[Template]:
 
 
 def _build(
-    existing: Sequence[Template],
+    template_id: int,
     *,
     model_id: str,
     label: str,
@@ -239,7 +250,7 @@ def _build(
         raise TemplateSchemaError("Encoding contains non-finite values")
 
     return Template(
-        id=next_id(existing),
+        id=template_id,
         label=label,
         created=int(time.time()) if created is None else created,
         model_id=model_id,
@@ -249,11 +260,42 @@ def _build(
 
 def next_id(templates: Sequence[Template]) -> int:
     """
-    Return the id to give the next template. IDs may have gaps; the last is the max.
+    Return one past the highest id in ``templates``. IDs may have gaps and, in
+    legacy files, need not be in ascending order.
     :param templates: the existing templates
+    :return: the lowest id above every existing one
+    """
+    return max((template.id for template in templates), default=-1) + 1
+
+
+def peek_next_id(user: str, templates: Sequence[Template]) -> int:
+    """
+    Return the id the next template of ``user`` will get: above every id in
+    ``templates`` and above any id given out before and since removed.
+    :param user: the user whose file holds the high-water mark
+    :param templates: the user's current templates
     :return: the next id to use
     """
-    return templates[-1].id + 1 if templates else 0
+    return max(next_id(templates), _stored_next_id(_path_for(user)))
+
+
+def _stored_next_id(path: Path) -> int:
+    """
+    Return the high-water mark saved in ``path``, or 0 if there is none.
+    :param path: the template file
+    :return: the stored ``next_id``, or 0
+    """
+    try:
+        payload = _read_payload(path)
+    except (TemplateStoreError, OSError):
+        return 0
+    if not isinstance(payload, dict):
+        return 0
+    stored = payload.get("next_id")
+    # bool is an int subclass; a hand-edited true must not count as 1
+    if isinstance(stored, int) and not isinstance(stored, bool) and stored > 0:
+        return stored
+    return 0
 
 
 def find(templates: Iterable[Template], template_id: int) -> Template | None:

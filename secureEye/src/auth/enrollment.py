@@ -127,8 +127,9 @@ class EnrollSession:
         valid_frames = 0
         dark_tries = 0
         dark_total = 0.0
-        faces: list[Face] = []
-        frame: Frame | None = None
+        face: Face | None = None
+        face_frame: Frame | None = None
+        saw_multiple = False
 
         try:
             if settle_s > 0 and self._cancel_event.wait(settle_s):
@@ -146,8 +147,6 @@ class EnrollSession:
                     if self._cancel_event.is_set():
                         return EnrollOutcome(EnrollResult.CANCELLED)
                     raise
-                frame = captured.frame
-
                 if captured.state is FrameState.BLACK:
                     self._report(captured.index, FrameState.BLACK, captured, started, [])
                     continue
@@ -169,8 +168,12 @@ class EnrollSession:
                     state = FrameState.FACE
                 self._report(captured.index, state, captured, started, faces)
 
-                if faces:
+                # A second face can be someone passing behind the user or a one-frame
+                # false positive, so keep looking for a frame with exactly one
+                if len(faces) == 1:
+                    face, face_frame = faces[0], captured.frame
                     break
+                saw_multiple = saw_multiple or len(faces) > 1
 
             if self._cancel_event.is_set():
                 return EnrollOutcome(EnrollResult.CANCELLED)
@@ -180,17 +183,17 @@ class EnrollSession:
                 "dark_tries": dark_tries,
                 "avg_darkness": dark_total / valid_frames if valid_frames else 0.0,
             }
-            if not faces:
+            if face is None:
+                if saw_multiple:
+                    return EnrollOutcome(EnrollResult.MULTIPLE_FACES, **stats)
                 if valid_frames == 0:
                     return EnrollOutcome(EnrollResult.BLACK_FRAMES, **stats)
                 if valid_frames == dark_tries:
                     return EnrollOutcome(EnrollResult.TOO_DARK, **stats)
                 return EnrollOutcome(EnrollResult.NO_FACE, **stats)
-            if len(faces) > 1:
-                return EnrollOutcome(EnrollResult.MULTIPLE_FACES, **stats)
 
-            assert frame is not None
-            embedding = self.bundle.recognizer.embed(frame, faces[0])
+            assert face_frame is not None
+            embedding = self.bundle.recognizer.embed(face_frame, face)
             return EnrollOutcome(EnrollResult.SUCCESS, embedding=embedding, **stats)
         finally:
             with self._state_lock:
