@@ -14,7 +14,7 @@ ffmpeg-python==0.2.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux
     # via secureeye
 flatbuffers==25.12.19 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via mediapipe
-fonttools==4.67.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
+fonttools==4.68.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via matplotlib
 future==1.0.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via ffmpeg-python
@@ -24,7 +24,7 @@ kiwisolver==1.5.1 ; (platform_machine == 'aarch64' and sys_platform == 'linux') 
     # via matplotlib
 matplotlib==3.11.2 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via mediapipe
-mediapipe==1.1.1 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
+mediapipe==1.2.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via secureeye
 numpy==2.5.4 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via
