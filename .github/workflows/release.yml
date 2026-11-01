@@ -278,6 +278,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set packaging version to ${{ needs.version.outputs.version }}
+        run: scripts/set-package-version.sh "${{ needs.version.outputs.version }}"
+
       - name: Stage a build tree
         env:
           VERSION: ${{ needs.version.outputs.version }}
