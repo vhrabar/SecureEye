@@ -331,4 +331,3 @@ if [[ "$DROP_TO_BASH" == "1" ]]; then
   echo "Opening bash shell (DROP_TO_BASH=1)."
   exec bash
 fi
-

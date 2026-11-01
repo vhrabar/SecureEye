@@ -110,7 +110,7 @@ Kirigami.ScrollablePage {
             type: Kirigami.MessageType.Error
         }
 
-        // Status cards 
+        // Status cards
         RowLayout {
             Layout.fillWidth: true
             spacing: Kirigami.Units.largeSpacing
@@ -206,7 +206,7 @@ Kirigami.ScrollablePage {
             }
         }
 
-        // Action buttons 
+        // Action buttons
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
 
@@ -223,7 +223,7 @@ Kirigami.ScrollablePage {
             }
         }
 
-        // Advanced section 
+        // Advanced section
         Kirigami.AbstractCard {
             Layout.fillWidth: true
 

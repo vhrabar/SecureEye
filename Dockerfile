@@ -55,4 +55,3 @@ COPY docker/entrypoint-pam-sudo-smoke.sh /usr/local/bin/entrypoint-pam-sudo-smok
 RUN chmod +x /usr/local/bin/entrypoint-pam-sudo-smoke.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint-pam-sudo-smoke.sh"]
-

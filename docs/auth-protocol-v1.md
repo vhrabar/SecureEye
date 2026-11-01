@@ -129,4 +129,3 @@ PAM transport/protocol failures are fail-closed per project policy:
 - Daemon must use peer credential checks (`SO_PEERCRED`) where available.
 - Daemon must not trust unbounded strings; apply strict length checks before processing.
 - All parser failures are non-fatal to daemon process and isolated to request scope.
-

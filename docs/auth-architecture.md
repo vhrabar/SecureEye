@@ -37,4 +37,3 @@ Keep PAM deterministic and minimal while moving Python/MediaPipe runtime into an
 - `secureeye-authd`
     - Python modules and MediaPipe dependency chain
     - systemd service unit and runtime socket provisioning
-

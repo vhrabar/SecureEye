@@ -5,4 +5,3 @@ cd /workspace
 export PYTHONPATH="/workspace/secureEye/src:${PYTHONPATH:-}"
 
 exec pytest "$@"
-

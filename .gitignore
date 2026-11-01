@@ -145,3 +145,11 @@ subprojects/
 # dev sandbox (GUI/camera-test runs against this instead of /etc/secureEye)
 .devroot/
 archbuild/
+
+# local build dirs (meson, dpkg-buildpackage)
+buildDir/
+obj-*/
+
+# local Claude Code / MCP settings
+.claude/settings.local.json
+.mcp.json

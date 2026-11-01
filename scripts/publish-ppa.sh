@@ -114,6 +114,8 @@ ppa_archive="${repository_name#*/}"
 
 workspace="${GITHUB_WORKSPACE:-$PWD}"
 
+# The pattern is a glob on purpose; let it expand.
+# shellcheck disable=SC2206
 resolve_one_path() {
     local label=$1
     local pattern=$2
@@ -309,6 +311,9 @@ for s in $SERIES; do
             ;;
     esac
 
+    # NOTE: $GPG_PASSPHRASE ends up unquoted inside the -p command string, so a
+    # passphrase with spaces or glob characters breaks signing.
+    # shellcheck disable=SC2027,SC2086
     debuild -S "$source_upload_option" \
         -k"$GPG_KEY_ID" \
         -p"gpg --batch --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback"

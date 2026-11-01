@@ -32,4 +32,3 @@ Fail closed:
 - send/receive fails -> `PAM_AUTH_ERR`
 - IPC timeout expires -> `PAM_AUTH_ERR`
 - response parse/version check fails -> `PAM_AUTH_ERR`
-

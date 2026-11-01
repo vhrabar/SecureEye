@@ -18,7 +18,7 @@ jobs:
           libpam0g-dev libinih-dev libevdev-dev systemd-dev gettext
           qt6-base-dev qt6-base-dev-tools
           qt6-declarative-dev qt6-declarative-dev-tools
-        
+
       - name: Install meson
         run: sudo python3 -m pip install meson ninja
 
@@ -35,4 +35,3 @@ jobs:
       - name: Check source code
         run: |
           ninja clang-tidy -C build
-          
