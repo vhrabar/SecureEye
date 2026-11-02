@@ -141,8 +141,6 @@ meson compile -C %{_vpath_builddir}
 %install
 DESTDIR=%{buildroot} meson install -C %{_vpath_builddir}
 
-rm -rf %{buildroot}%{_datadir}/dlib-data
-
 # User models directory (user_models_dir).
 install -d -m 0700 %{buildroot}%{_sysconfdir}/secureEye/models
 

@@ -43,7 +43,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "command",
     help=_(
-        "The command option to execute, can be one of the following: add, clear, config, disable, list, re-enroll, remove, snapshot, set, test or version."
+        "The command option to execute, can be one of the following: add, clear, config, disable, fetch-models, list, re-enroll, remove, snapshot, set, test or version."
     ),
     metavar="command",
     choices=[
@@ -51,6 +51,7 @@ parser.add_argument(
         "clear",
         "config",
         "disable",
+        "fetch-models",
         "list",
         "re-enroll",
         "remove",
@@ -114,7 +115,7 @@ builtins.secureEye_user = args.user
 from cli.output import fail, ok  # noqa: E402
 
 # Commands whose output follows cli/output.py. The rest still print free text or need a terminal.
-json_commands = {"clear", "disable", "list", "remove", "set", "version"}
+json_commands = {"clear", "disable", "fetch-models", "list", "remove", "set", "version"}
 if args.json and args.command not in json_commands:
     fail("json_unsupported", _("The {} command does not support --json").format(args.command))
 
@@ -145,6 +146,7 @@ command_modules = {
     "clear": "cli.clear",
     "config": "cli.config",
     "disable": "cli.disable",
+    "fetch-models": "cli.fetch_models",
     "list": "cli.list",
     "re-enroll": "cli.re_enroll",
     "remove": "cli.remove",

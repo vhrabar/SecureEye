@@ -46,6 +46,7 @@ py_sources = [
     'cli/config.py',
     'cli/disable.py',
     'cli/enrollment.py',
+    'cli/fetch_models.py',
     'cli/list.py',
     'cli/output.py',
     'cli/re_enroll.py',
@@ -60,6 +61,7 @@ py_sources = [
     'detectors/dlib_detector.py',
     'detectors/mediapipe_detector.py',
     'detectors/utils.py',
+    'dlib_models.py',
     'i18n.py',
     'paths_factory.py',
     'recorders/__init__.py',
@@ -137,8 +139,6 @@ install_data(
 )
 
 install_data('config.ini', install_dir : confdir, install_mode : 'rw-r--r--', install_tag : 'config')
-
-install_data('dlib-data/install.sh', 'dlib-data/Readme.md', install_dir: dlibdatadir, install_mode: 'rwxr--r--')
 
 install_man('../SecureEye.1')
 

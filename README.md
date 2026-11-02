@@ -65,7 +65,8 @@ sudo systemctl enable --now secureeye-authd.service
 ```
 
 Leave out `secure-eye-gui` on machines without a desktop. On Arch the default recognition backend, mediapipe, is
-x86_64 only; on other architectures set `detector_backend = dlib` with `sudo secureEye config` before first use.
+x86_64 only. On other architectures, set `detector_backend = dlib` with `sudo secureEye config` and run
+`sudo secureEye fetch-models` before first use.
 
 ## Usage
 

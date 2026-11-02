@@ -52,4 +52,5 @@ the backend before first use:
 
 ```bash
 sudo secureEye config    # set detector_backend = dlib
+sudo secureEye fetch-models
 ```

@@ -17,6 +17,10 @@ mediapipe is packaged for x86_64 and aarch64 on Ubuntu and Fedora, but for x86_6
 available, set `detector_backend = dlib` in `/etc/secureEye/config.ini` (or with `sudo secureEye config`) before first
 use.
 
+The packages don't include the dlib data files (about 28 MB). After switching to dlib, download them once with
+`sudo secureEye fetch-models`, or with the **Download dlib data files** button on the app's Dashboard. They are stored
+in `/var/lib/secureeye/dlib-data`.
+
 After installing, set up the camera, enroll your face and enable the PAM module as described under
 [Usage](../README.md#usage) in the README. [Enabling the PAM module](#enabling-the-pam-module) below has the
 per-distribution details for that last step.
