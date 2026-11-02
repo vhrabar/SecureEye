@@ -36,7 +36,7 @@ The recognition backends are ordinary packages from the
 [`vhrabar/python-extras`](https://copr.fedorainfracloud.org/coprs/vhrabar/python-extras/)
 COPR, selected with `detector_backend` in `/etc/secureEye/config.ini`:
 
-- `python3-mediapipe` — the default backend, **x86_64 only**
+- `python3-mediapipe` — the default backend, x86_64 and aarch64
 - `python3-dlib` — the alternative backend, and the only one on other
   architectures
 
@@ -47,7 +47,8 @@ dependencies:
 sudo dnf copr enable vhrabar/python-extras
 ```
 
-On non-x86_64 there is no mediapipe, so switch the backend before first use:
+On architectures other than x86_64 and aarch64 there is no mediapipe, so switch
+the backend before first use:
 
 ```bash
 sudo secureEye config    # set detector_backend = dlib

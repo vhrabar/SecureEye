@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The mediapipe backend is now available on aarch64 for Ubuntu and Fedora:
+  `ppa:vhrabar/tools` and `copr:vhrabar/python-extras` build
+  `python3-mediapipe` for it, so `secure-eye` now depends on it on aarch64
+  as well as x86_64, and aarch64 installs no longer have to switch
+  `detector_backend` to dlib.
 ## [0.3.2] - 2026-11-01
 
 ### Fixed

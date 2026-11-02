@@ -25,7 +25,7 @@ code runs inside the process that is authenticating you.
 ## Features
 
 * Face login for any PAM service, falling back to your password when recognition fails or times out
-* mediapipe (default, x86_64 only) or dlib recognition backend, chosen in the config
+* mediapipe (default; x86_64 and aarch64, x86_64 only on Arch) or dlib recognition backend, chosen in the config
 * `secureEye` CLI to enroll, list and remove face models and to test the camera
 * Desktop app to enroll with a live preview, run a recognition test against the `certainty` threshold and edit the
   configuration
@@ -64,8 +64,8 @@ paru -S secure-eye secure-eye-gui   # or: yay -S ...
 sudo systemctl enable --now secureeye-authd.service
 ```
 
-Leave out `secure-eye-gui` on machines without a desktop. The default recognition backend, mediapipe, is x86_64
-only; on other architectures set `detector_backend = dlib` with `sudo secureEye config` before first use.
+Leave out `secure-eye-gui` on machines without a desktop. On Arch the default recognition backend, mediapipe, is
+x86_64 only; on other architectures set `detector_backend = dlib` with `sudo secureEye config` before first use.
 
 ## Usage
 

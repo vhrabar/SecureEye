@@ -10,7 +10,7 @@
 #   Source1  sysusers fragment
 #
 # Nothing is bundled: the recognition backends are ordinary packages from
-# copr:vhrabar/python-extras (python3-mediapipe, x86_64 only; python3-dlib) and
+# copr:vhrabar/python-extras (python3-mediapipe on x86_64/aarch64; python3-dlib) and
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
@@ -60,9 +60,9 @@ Requires:       python3-opencv
 Requires:       python3-matplotlib
 Requires:       python3-cffi
 # Recognition backends, from copr:vhrabar/python-extras. mediapipe is the
-# default backend and is x86_64-only; dlib is the alternative and the only
-# backend on other architectures.
-%ifarch x86_64
+# default backend and is built for x86_64 and aarch64; dlib is the
+# alternative and the only backend on other architectures.
+%ifarch x86_64 aarch64
 Requires:       python3-mediapipe
 %endif
 Requires:       python3-dlib
@@ -88,7 +88,7 @@ daemon it talks to over a UNIX socket, the Python recognition runtime and the
 secureEye command line tool.
 
 The recognition backend is selected with detector_backend in
-/etc/secureEye/config.ini: mediapipe (the default, x86_64 only) or dlib. The
+/etc/secureEye/config.ini: mediapipe (the default, x86_64 and aarch64) or dlib. The
 daemon runs on the system Python interpreter, so there is nothing to rebuild
 after a Python upgrade.
 

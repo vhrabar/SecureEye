@@ -10,11 +10,12 @@ SecureEye is published as two packages:
 The recognition backends are ordinary distribution packages, not a bundled virtualenv, and the daemon runs on the
 system Python, so nothing needs rebuilding after a Python upgrade:
 
-- mediapipe (`python3-mediapipe`, `python-mediapipe` on Arch): the default backend, x86_64 only
-- dlib (`python3-dlib`, `python-dlib` on Arch): the alternative, available on every architecture
+- mediapipe (`python3-mediapipe`, `python-mediapipe` on Arch): the default backend
+- dlib (`python3-dlib`, `python-dlib` on Arch): the alternative
 
-On architectures other than x86_64, set `detector_backend = dlib` in `/etc/secureEye/config.ini` (or with
-`sudo secureEye config`) before first use.
+mediapipe is packaged for x86_64 and aarch64 on Ubuntu and Fedora, but for x86_64 only on Arch. Where it isn't
+available, set `detector_backend = dlib` in `/etc/secureEye/config.ini` (or with `sudo secureEye config`) before first
+use.
 
 After installing, set up the camera, enroll your face and enable the PAM module as described under
 [Usage](../README.md#usage) in the README. [Enabling the PAM module](#enabling-the-pam-module) below has the
