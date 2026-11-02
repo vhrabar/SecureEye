@@ -272,9 +272,8 @@ class AuthSession:
                 holder["bundle"] = create_pipeline(config)
                 self.timings["ll"] = time.time() - self.timings["ll"]
             except FileNotFoundError:
-                print(_("Data files have not been downloaded, please run the following commands:"))
-                print("\n\tcd " + paths_factory.dlib_data_dir_path())
-                print("\tsudo ./install.sh\n")
+                print(_("The dlib data files have not been downloaded, please run:"))
+                print("\n\tsudo secureEye fetch-models\n")
                 holder["error"] = _("Missing dlib data files")
             except DetectorFactoryError as exc:
                 holder["error"] = str(exc)

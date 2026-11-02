@@ -59,6 +59,8 @@ Kirigami.ScrollablePage {
 
     title: "Dashboard"
 
+    onVisibleChanged: if (visible) DlibModels.refresh()
+
     CameraDevice {
         id: camera
 
@@ -92,6 +94,13 @@ Kirigami.ScrollablePage {
         }
 
         target: PamStatus
+    }
+    Connections {
+        function onFailed(message: string): void {
+            page.showError(message);
+        }
+
+        target: DlibModels
     }
 
     ColumnLayout {
@@ -269,6 +278,42 @@ Kirigami.ScrollablePage {
                         Layout.preferredHeight: Kirigami.Units.iconSizes.medium
                         Layout.preferredWidth: Kirigami.Units.iconSizes.medium
                         running: DaemonController.busy
+                        visible: running
+                    }
+                }
+
+                Kirigami.Separator {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                }
+                Controls.Label {
+                    Layout.fillWidth: true
+                    opacity: 0.6
+                    text: {
+                        if (!DlibModels.required) {
+                            return "The dlib data files are only needed when core.detector_backend is dlib.";
+                        }
+                        if (DlibModels.present) {
+                            return "The dlib data files are installed in %1.".arg(DlibModels.directory);
+                        }
+                        return "The dlib backend is selected, but its data files are missing. Face login does not work until they are downloaded (about 28 MB).";
+                    }
+                    wrapMode: Text.WordWrap
+                }
+                RowLayout {
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Controls.Button {
+                        enabled: DlibModels.canFetch
+                        icon.name: "download"
+                        text: DlibModels.busy ? "Downloading…" : "Download dlib data files"
+
+                        onClicked: DlibModels.fetch()
+                    }
+                    Controls.BusyIndicator {
+                        Layout.preferredHeight: Kirigami.Units.iconSizes.medium
+                        Layout.preferredWidth: Kirigami.Units.iconSizes.medium
+                        running: DlibModels.busy
                         visible: running
                     }
                 }

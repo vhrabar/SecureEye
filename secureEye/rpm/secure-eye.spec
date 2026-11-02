@@ -10,7 +10,7 @@
 #   Source1  sysusers fragment
 #
 # Nothing is bundled: the recognition backends are ordinary packages from
-# copr:vhrabar/python-extras (python3-mediapipe, x86_64 only; python3-dlib) and
+# copr:vhrabar/python-extras (python3-mediapipe on x86_64/aarch64; python3-dlib) and
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
@@ -19,14 +19,17 @@
 
 %undefine __brp_python_bytecompile
 
-# secure-eye-gui needs meson >= 1.7 (qt.qml_module). RHEL 10 and its rebuilds
-# (AlmaLinux) ship meson 1.4, so they get the core package only; CentOS Stream
-# and Fedora are newer. Override with --with gui / --without gui.
-%if 0%{?rhel} && !0%{?centos}
-%bcond_with gui
-%else
+# secure-eye-gui needs meson >= 1.7 (qt.qml_module). Decide on the meson that
+# is actually installed rather Where meson is not installed yet (SRPM build, BuildRequires
+# resolution) the GUI stays on; the binary build, which runs with meson
+# installed, turns it off on older meson. Build with --without gui to skip it.
+%{lua:
+local v = rpm.expand("%(meson --version 2>/dev/null)")
+if v ~= "" and rpm.vercmp(v, "1.7") < 0 then
+    rpm.define("_without_gui 1")
+end
+}
 %bcond_without gui
-%endif
 
 Name:           secure-eye
 Version:        %{pkg_version}
@@ -60,9 +63,9 @@ Requires:       python3-opencv
 Requires:       python3-matplotlib
 Requires:       python3-cffi
 # Recognition backends, from copr:vhrabar/python-extras. mediapipe is the
-# default backend and is x86_64-only; dlib is the alternative and the only
-# backend on other architectures.
-%ifarch x86_64
+# default backend and is built for x86_64 and aarch64; dlib is the
+# alternative and the only backend on other architectures.
+%ifarch x86_64 aarch64
 Requires:       python3-mediapipe
 %endif
 Requires:       python3-dlib
@@ -88,7 +91,7 @@ daemon it talks to over a UNIX socket, the Python recognition runtime and the
 secureEye command line tool.
 
 The recognition backend is selected with detector_backend in
-/etc/secureEye/config.ini: mediapipe (the default, x86_64 only) or dlib. The
+/etc/secureEye/config.ini: mediapipe (the default, x86_64 and aarch64) or dlib. The
 daemon runs on the system Python interpreter, so there is nothing to rebuild
 after a Python upgrade.
 
@@ -140,8 +143,6 @@ meson compile -C %{_vpath_builddir}
 
 %install
 DESTDIR=%{buildroot} meson install -C %{_vpath_builddir}
-
-rm -rf %{buildroot}%{_datadir}/dlib-data
 
 # User models directory (user_models_dir).
 install -d -m 0700 %{buildroot}%{_sysconfdir}/secureEye/models

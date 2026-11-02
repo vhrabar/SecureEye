@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `secureEye fetch-models` downloads the three data files the dlib backend
+  needs (about 28 MB) and checks them against pinned sha256 sums. The packages
+  can't ship them because their build services run offline. The Dashboard in
+  `secure-eye-gui` has a matching "Download dlib data files" button. It is
+  enabled only when `detector_backend = dlib` and the files are missing.
+
+### Changed
+
+- The mediapipe backend is now available on aarch64 for Ubuntu and Fedora:
+  `ppa:vhrabar/tools` and `copr:vhrabar/python-extras` build
+  `python3-mediapipe` for it, so `secure-eye` now depends on it on aarch64
+  as well as x86_64, and aarch64 installs no longer have to switch
+  `detector_backend` to dlib.
 ## [0.3.2] - 2026-11-01
 
 ### Fixed

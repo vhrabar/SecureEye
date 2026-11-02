@@ -35,8 +35,14 @@ export SECUREEYE_CONFIG_DIR=$DEVROOT/etc/secureEye
 export SECUREEYE_MODELS_DIR=$DEVROOT/etc/secureEye/models
 export SECUREEYE_LOG_PATH=$DEVROOT/var/log/secureEye
 export SECUREEYE_AUTHD_SOCKET=$SOCKET
-if [[ -z ${SECUREEYE_DLIB_DATA_DIR:-} && -d /usr/share/dlib-data ]]; then
-    export SECUREEYE_DLIB_DATA_DIR=/usr/share/dlib-data
+
+if [[ -z ${SECUREEYE_DLIB_DATA_DIR:-} ]]; then
+    for dir in /var/lib/secureeye/dlib-data /usr/share/dlib-data; do
+        if [[ -d $dir ]]; then
+            export SECUREEYE_DLIB_DATA_DIR=$dir
+            break
+        fi
+    done
 fi
 
 meson compile -C "$BUILD_DIR" secureEye/src/gui/secureeye-gui

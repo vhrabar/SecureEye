@@ -17,10 +17,14 @@ except ModuleNotFoundError as exc:  # pragma: no cover - fallback for package-st
 
 class DlibDetector(FaceDetector):
     def __init__(self, cnn=False):
-        shape_path = Path(paths_factory.shape_predictor_5_face_landmarks_path())
-        if not shape_path.is_file():
-            raise FileNotFoundError(str(shape_path))
+        # All three are needed; check up front so a missing one is reported the same way
+        # instead of as a RuntimeError from inside dlib.
+        for name in paths_factory.models:
+            data_file = Path(paths_factory.dlib_data_dir_path()) / name
+            if not data_file.is_file():
+                raise FileNotFoundError(str(data_file))
 
+        shape_path = Path(paths_factory.shape_predictor_5_face_landmarks_path())
         mmod_path = paths_factory.mmod_human_face_detector_path()
         encoder_path = paths_factory.dlib_face_recognition_resnet_model_v1_path()
 

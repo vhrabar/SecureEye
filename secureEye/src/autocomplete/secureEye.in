@@ -14,7 +14,7 @@ _secureEye() {
 	case "${prev}" in
 		# After the main command, show the commands
 		"secureEye")
-			opts="add clear config disable list remove clear snapshot test version"
+			opts="add clear config disable fetch-models list re-enroll remove set snapshot test version"
 			COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 			return 0
 			;;

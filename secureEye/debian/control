@@ -34,7 +34,7 @@ Depends:
  python3-matplotlib,
  python3-cffi,
  python3-dlib,
- python3-mediapipe [amd64],
+ python3-mediapipe [amd64 arm64],
  v4l-utils
 Recommends: python3-sounddevice
 Suggests: python3-ffmpeg, python3-keyboard
@@ -48,7 +48,7 @@ Description: SecureEye face authentication for Linux
  secureEye command line tool.
  .
  Recognition backends come from the distribution rather than a bundled
- virtualenv: python3-mediapipe (amd64 only) is the default backend and
+ virtualenv: python3-mediapipe (amd64 and arm64) is the default backend and
  python3-dlib is the alternative, selectable via detector_backend in
  /etc/secureEye/config.ini. On architectures without mediapipe, set
  detector_backend = dlib.

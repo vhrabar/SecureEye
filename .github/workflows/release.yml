@@ -245,7 +245,7 @@ jobs:
           docker run --rm -v "$PWD/dist:/rpms:ro" "$FEDORA_IMAGE" bash -euc '
             dnf_opts="--setopt=timeout=180 --setopt=retries=10 --setopt=minrate=0"
             dnf install -y $dnf_opts dnf-plugins-core
-            # Recognition backends (python3-mediapipe on x86_64, python3-dlib).
+            # Recognition backends (python3-mediapipe on x86_64/aarch64, python3-dlib).
             dnf copr enable -y vhrabar/python-extras
             dnf install -y $dnf_opts /rpms/*.rpm
             rpm -q secure-eye

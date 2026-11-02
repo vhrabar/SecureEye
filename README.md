@@ -8,6 +8,10 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/pytests.yml?style=for-the-badge&label=tests&logo=pytest&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/pytests.yml)
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/)
 
+[![GUI coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vhrabar/SecureEye/badges/gui.json&style=for-the-badge&label=GUI%20coverage)](https://github.com/vhrabar/SecureEye/actions/workflows/coverage.yml)
+[![Backend coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vhrabar/SecureEye/badges/backend.json&style=for-the-badge&label=Backend%20coverage)](https://github.com/vhrabar/SecureEye/actions/workflows/coverage.yml)
+[![PAM coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vhrabar/SecureEye/badges/pam.json&style=for-the-badge&label=PAM%20coverage)](https://github.com/vhrabar/SecureEye/actions/workflows/coverage.yml)
+
 [![Latest release](https://img.shields.io/github/v/release/vhrabar/SecureEye?include_prereleases&sort=semver&style=for-the-badge&logo=github)](https://github.com/vhrabar/SecureEye/releases)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#status)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-orange?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
@@ -25,7 +29,7 @@ code runs inside the process that is authenticating you.
 ## Features
 
 * Face login for any PAM service, falling back to your password when recognition fails or times out
-* mediapipe (default, x86_64 only) or dlib recognition backend, chosen in the config
+* mediapipe (default; x86_64 and aarch64, x86_64 only on Arch) or dlib recognition backend, chosen in the config
 * `secureEye` CLI to enroll, list and remove face models and to test the camera
 * Desktop app to enroll with a live preview, run a recognition test against the `certainty` threshold and edit the
   configuration
@@ -64,8 +68,9 @@ paru -S secure-eye secure-eye-gui   # or: yay -S ...
 sudo systemctl enable --now secureeye-authd.service
 ```
 
-Leave out `secure-eye-gui` on machines without a desktop. The default recognition backend, mediapipe, is x86_64
-only; on other architectures set `detector_backend = dlib` with `sudo secureEye config` before first use.
+Leave out `secure-eye-gui` on machines without a desktop. On Arch the default recognition backend, mediapipe, is
+x86_64 only. On other architectures, set `detector_backend = dlib` with `sudo secureEye config` and run
+`sudo secureEye fetch-models` before first use.
 
 ## Usage
 
