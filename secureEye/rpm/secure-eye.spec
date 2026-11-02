@@ -19,14 +19,17 @@
 
 %undefine __brp_python_bytecompile
 
-# secure-eye-gui needs meson >= 1.7 (qt.qml_module). RHEL 10 and its rebuilds
-# (AlmaLinux) ship meson 1.4, so they get the core package only; CentOS Stream
-# and Fedora are newer. Override with --with gui / --without gui.
-%if 0%{?rhel} && !0%{?centos}
-%bcond_with gui
-%else
+# secure-eye-gui needs meson >= 1.7 (qt.qml_module). Decide on the meson that
+# is actually installed rather Where meson is not installed yet (SRPM build, BuildRequires
+# resolution) the GUI stays on; the binary build, which runs with meson
+# installed, turns it off on older meson. Build with --without gui to skip it.
+%{lua:
+local v = rpm.expand("%(meson --version 2>/dev/null)")
+if v ~= "" and rpm.vercmp(v, "1.7") < 0 then
+    rpm.define("_without_gui 1")
+end
+}
 %bcond_without gui
-%endif
 
 Name:           secure-eye
 Version:        %{pkg_version}
