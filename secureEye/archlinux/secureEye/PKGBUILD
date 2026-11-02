@@ -2,7 +2,7 @@
 
 pkgbase=secure-eye
 pkgname=('secure-eye' 'secure-eye-gui')
-pkgver=0.3.2
+pkgver=0.3.3
 pkgrel=1
 pkgdesc="Face authentication for Linux"
 arch=('x86_64' 'aarch64')
