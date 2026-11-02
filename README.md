@@ -8,6 +8,10 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/vhrabar/SecureEye/pytests.yml?style=for-the-badge&label=tests&logo=pytest&logoColor=white)](https://github.com/vhrabar/SecureEye/actions/workflows/pytests.yml)
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/vhrabar/SecureEye/package/secure-eye/)
 
+[![GUI coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vhrabar/SecureEye/badges/gui.json&style=for-the-badge&label=GUI%20coverage)](https://github.com/vhrabar/SecureEye/actions/workflows/coverage.yml)
+[![Backend coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vhrabar/SecureEye/badges/backend.json&style=for-the-badge&label=Backend%20coverage)](https://github.com/vhrabar/SecureEye/actions/workflows/coverage.yml)
+[![PAM coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vhrabar/SecureEye/badges/pam.json&style=for-the-badge&label=PAM%20coverage)](https://github.com/vhrabar/SecureEye/actions/workflows/coverage.yml)
+
 [![Latest release](https://img.shields.io/github/v/release/vhrabar/SecureEye?include_prereleases&sort=semver&style=for-the-badge&logo=github)](https://github.com/vhrabar/SecureEye/releases)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge&logo=semver&logoColor=white)](#status)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-orange?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)

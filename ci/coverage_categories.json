@@ -1,0 +1,28 @@
+{
+  "_doc": "Coverage categories. 'cpp' entries are gcovr --filter regexes (relative to the repo root), 'python' entries are coverage.py --include globs. A category may list both; its percentage is then covered/total lines summed over both languages. 'id' is the badge file name (badges/<id>.json).",
+  "cpp_exclude": [
+    "(.+/)?tests/",
+    "(.+/)?subprojects/"
+  ],
+  "python_omit": [
+    "tests/*",
+    "*/tests/*"
+  ],
+  "categories": [
+    {
+      "id": "gui",
+      "label": "GUI",
+      "cpp": ["secureEye/src/gui/"]
+    },
+    {
+      "id": "backend",
+      "label": "Backend",
+      "python": ["secureEye/src/*"]
+    },
+    {
+      "id": "pam",
+      "label": "PAM",
+      "cpp": ["secureEye/src/pam/"]
+    }
+  ]
+}

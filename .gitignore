@@ -45,6 +45,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+/out/
 *.cover
 .hypothesis/
 
@@ -148,6 +149,7 @@ archbuild/
 
 # local build dirs (meson, dpkg-buildpackage)
 buildDir/
+build-cov/
 obj-*/
 
 # local Claude Code / MCP settings

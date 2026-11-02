@@ -1,0 +1,90 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+# Serialise runs per ref so two pushes to main don't race on the badges branch.
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: {}
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push badges (and optional Pages report) on main
+      pull-requests: write   # sticky PR comment
+    env:
+      UV_PYTHON: "3.14"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          --no-install-recommends
+          build-essential pkg-config gettext
+          libpam0g-dev libinih-dev libevdev-dev systemd-dev
+          qt6-base-dev qt6-base-dev-tools
+          qt6-declarative-dev qt6-declarative-dev-tools
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install meson
+        run: uv tool install meson && uv tool install ninja
+
+      - name: Build, test and measure coverage
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          REPORT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ci/coverage.sh
+
+      - name: Write job summary
+        run: cat out/comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html
+          path: out/html/
+          if-no-files-found: warn
+
+      # Fork PRs get a read-only token, so they only get the job summary above.
+      - name: Post sticky PR comment
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: coverage
+          path: out/comment.md
+
+      - name: Publish badges
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: badges
+          publish_dir: out/badges
+          keep_files: true
+          commit_message: "chore(coverage): update badges"
+
+      - name: Publish HTML report to GitHub Pages
+        if: >
+          github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          vars.COVERAGE_PAGES == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: out/html
+          destination_dir: coverage
+          commit_message: "chore(coverage): update HTML report"
