@@ -10,19 +10,48 @@
   ],
   "categories": [
     {
-      "id": "gui",
-      "label": "GUI",
-      "cpp": ["secureEye/src/gui/"]
-    },
-    {
-      "id": "backend",
-      "label": "Backend",
-      "python": ["secureEye/src/*"]
-    },
-    {
       "id": "pam",
       "label": "PAM",
-      "cpp": ["secureEye/src/pam/"]
+      "cpp": [
+        "secureEye/src/pam/"
+      ]
+    },
+    {
+      "id": "daemon",
+      "label": "Daemon",
+      "python": [
+        "secureEye/src/authd/*"
+      ]
+    },
+    {
+      "id": "core",
+      "label": "Core",
+      "python": [
+        "secureEye/src/auth/*",
+        "secureEye/src/detectors/*",
+        "secureEye/src/recorders/*",
+        "secureEye/src/rubberstamps/*",
+        "secureEye/src/compare.py",
+        "secureEye/src/dlib_models.py",
+        "secureEye/src/i18n.py",
+        "secureEye/src/paths_factory.py",
+        "secureEye/src/snapshot.py"
+      ]
+    },
+    {
+      "id": "cli",
+      "label": "CLI",
+      "python": [
+        "secureEye/src/cli/*",
+        "secureEye/src/cli.py"
+      ]
+    },
+    {
+      "id": "gui",
+      "label": "GUI",
+      "cpp": [
+        "secureEye/src/gui/"
+      ]
     }
   ]
 }
