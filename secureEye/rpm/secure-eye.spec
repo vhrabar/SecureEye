@@ -14,7 +14,7 @@
 # the rest come from Fedora. Add that COPR as an external repository of the
 # SecureEye project so the builds and installs can resolve them.
 
-%{!?pkg_version:%global pkg_version 0.3.2}
+%{!?pkg_version:%global pkg_version 0.3.3}
 
 
 %undefine __brp_python_bytecompile
@@ -195,6 +195,19 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.vhrabar.Sec
 %endif
 
 %changelog
+* Mon Nov 02 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.3-1
+- Added: `secureEye fetch-models` downloads the three data files the dlib
+  backend needs (about 28 MB) and checks them against pinned sha256 sums.
+  The packages can't ship them because their build services run offline. The
+  Dashboard in `secure-eye-gui` has a matching "Download dlib data files"
+  button. It is enabled only when `detector_backend = dlib` and the files
+  are missing.
+- Changed: The mediapipe backend is now available on aarch64 for Ubuntu and
+  Fedora: `ppa:vhrabar/tools` and `copr:vhrabar/python-extras` build
+  `python3-mediapipe` for it, so `secure-eye` now depends on it on aarch64
+  as well as x86_64, and aarch64 installs no longer have to switch
+  `detector_backend` to dlib.
+
 * Sun Nov 01 2026 Vedran Hrabar <vedran.hrabar@outlook.com> - 0.3.2-1
 - Fixed: 0.3.1 never reached Ubuntu, Fedora or the AUR: its Debian changelog
   entry had the same date as 0.3.0's, which lintian rejects, so the release
