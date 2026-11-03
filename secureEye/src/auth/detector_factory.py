@@ -13,15 +13,35 @@ class DetectorFactoryError(RuntimeError):
     """Raised when a pipeline backend cannot be initialized."""
 
 
+#: Accepted values for ``[core] pipeline``.
+PIPELINES = ("legacy", "onnx")
+
 # cache built pipelines
 _pipeline_cache: dict[tuple, PipelineBundle] = {}
 _pipeline_cache_lock = threading.Lock()
 
 
+def selected_pipeline(config) -> str:
+    """
+    Return the ``[core] pipeline`` value of ``config``.
+
+    :param config: the config to read
+    :return: one of :data:`PIPELINES`; ``legacy`` when the key is missing
+    :raises DetectorFactoryError: if the value is not a known pipeline
+    """
+    pipeline = config.get("core", "pipeline", fallback="legacy").strip().lower()
+    if pipeline not in PIPELINES:
+        raise DetectorFactoryError(
+            f"Unsupported pipeline: {pipeline!r} (expected one of: {', '.join(PIPELINES)})"
+        )
+    return pipeline
+
+
 def _cache_key(config) -> tuple:
+    pipeline = selected_pipeline(config)
     backend = config.get("core", "detector_backend", fallback="dlib").strip().lower()
     use_cnn = config.getboolean("core", "use_cnn", fallback=False)
-    return (backend, use_cnn)
+    return (pipeline, backend, use_cnn)
 
 
 @dataclass
@@ -64,10 +84,15 @@ def create_pipeline(config) -> PipelineBundle:
 def _build_pipeline(config) -> PipelineBundle:
     """Create a pipeline from config.
 
-    Supported values for [core] detector_backend:
-    - dlib (default)
-    - mediapipe
+    ``[core] pipeline`` picks the pipeline:
+    - legacy (default): ``[core] detector_backend`` picks dlib (default) or mediapipe
+    - onnx: YuNet + SFace; not available yet
     """
+    if selected_pipeline(config) == "onnx":
+        raise DetectorFactoryError(
+            "pipeline = onnx is not available yet; set pipeline = legacy in [core]"
+        )
+
     backend = config.get("core", "detector_backend", fallback="dlib").strip().lower()
 
     if backend == "dlib":

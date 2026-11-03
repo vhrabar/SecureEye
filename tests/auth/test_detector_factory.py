@@ -11,7 +11,11 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 from auth import detector_factory  # noqa: E402
-from auth.detector_factory import DetectorFactoryError, create_pipeline  # noqa: E402
+from auth.detector_factory import (  # noqa: E402
+    DetectorFactoryError,
+    create_pipeline,
+    selected_pipeline,
+)
 from auth.interfaces import Detector, Recognizer  # noqa: E402
 from auth.template_store import LEGACY_MODEL_IDS  # noqa: E402
 
@@ -21,16 +25,17 @@ def _empty_cache(monkeypatch):
     monkeypatch.setattr(detector_factory, "_pipeline_cache", {})
 
 
-def _make_config(*, backend: str, use_cnn: bool = False) -> ConfigParser:
+def _make_config(
+    *, backend: str, use_cnn: bool = False, pipeline: str | None = None
+) -> ConfigParser:
+    core = {
+        "detector_backend": backend,
+        "use_cnn": "true" if use_cnn else "false",
+    }
+    if pipeline is not None:
+        core["pipeline"] = pipeline
     config = ConfigParser()
-    config.read_dict(
-        {
-            "core": {
-                "detector_backend": backend,
-                "use_cnn": "true" if use_cnn else "false",
-            }
-        }
-    )
+    config.read_dict({"core": core})
     return config
 
 
@@ -116,3 +121,45 @@ def test_pipeline_is_cached_per_config(monkeypatch):
 def test_unsupported_backend_raises_factory_error():
     with pytest.raises(DetectorFactoryError, match="Unsupported detector backend"):
         create_pipeline(_make_config(backend="unknown"))
+
+
+def test_pipeline_defaults_to_legacy():
+    assert selected_pipeline(_make_config(backend="dlib")) == "legacy"
+
+
+def test_pipeline_value_is_case_and_whitespace_insensitive():
+    assert selected_pipeline(_make_config(backend="dlib", pipeline="  ONNX ")) == "onnx"
+
+
+def test_explicit_legacy_pipeline_builds_the_detector_backend(monkeypatch):
+    _install_fake_dlib(monkeypatch)
+
+    bundle = create_pipeline(_make_config(backend="dlib", pipeline="legacy"))
+
+    assert bundle.backend == "dlib"
+
+
+def test_onnx_pipeline_is_not_available_yet():
+    with pytest.raises(DetectorFactoryError, match="pipeline = onnx is not available yet"):
+        create_pipeline(_make_config(backend="dlib", pipeline="onnx"))
+
+
+def test_unsupported_pipeline_raises_factory_error():
+    with pytest.raises(DetectorFactoryError, match="Unsupported pipeline: 'tflite'"):
+        create_pipeline(_make_config(backend="dlib", pipeline="tflite"))
+
+
+def test_cache_key_separates_pipelines():
+    legacy = _make_config(backend="dlib", pipeline="legacy")
+    onnx = _make_config(backend="dlib", pipeline="onnx")
+
+    assert detector_factory._cache_key(legacy) != detector_factory._cache_key(onnx)
+
+
+def test_failed_onnx_build_is_not_cached():
+    config = _make_config(backend="dlib", pipeline="onnx")
+
+    with pytest.raises(DetectorFactoryError):
+        create_pipeline(config)
+
+    assert detector_factory._pipeline_cache == {}
