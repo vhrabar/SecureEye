@@ -57,6 +57,14 @@ struct ConfigSectionInfo {
     std::string_view description;
 };
 
+// Add "onnx" once the ONNX pipeline can authenticate (#69, #70); offering it
+// earlier would let the GUI select a pipeline that fails every login.
+inline constexpr std::array<std::string_view, 1> kPipelines = {
+    "legacy",
+};
+inline constexpr std::array<std::string_view, 1> kPipelineLabels = {
+    "Legacy (dlib or MediaPipe)",
+};
 inline constexpr std::array<std::string_view, 2> kDetectorBackends = {
     "dlib",
     "mediapipe",
@@ -148,6 +156,15 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
      .label = "Disable face authentication",
      .help = "Disable SecureEye in PAM. The secureEye command still functions."},
     {.section = "core",
+     .key = "pipeline",
+     .type = ValueType::Enum,
+     .defaultValue = "legacy",
+     .label = "Recognition pipeline",
+     .help = "Face recognition pipeline. Legacy uses the detector backend below. "
+             "Switching pipelines requires re-enrolling your face models.",
+     .enumValues = kPipelines,
+     .enumLabels = kPipelineLabels},
+    {.section = "core",
      .key = "detector_backend",
      .type = ValueType::Enum,
      .defaultValue = "mediapipe",
@@ -155,7 +172,10 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
      .help = "Face detector used by the auth and session flow. Dlib uses its own "
              "detector and encoder, MediaPipe uses FaceNet-style embeddings.",
      .enumValues = kDetectorBackends,
-     .enumLabels = kDetectorBackendLabels},
+     .enumLabels = kDetectorBackendLabels,
+     .note = "legacy pipeline only",
+     .requiresKey = "pipeline",
+     .requiresValue = "legacy"},
     {.section = "core",
      .key = "use_cnn",
      .type = ValueType::Bool,
@@ -163,7 +183,10 @@ inline constexpr auto kOptions = std::to_array<ConfigOption>({
      .label = "Use the CNN model",
      .help = "Much more accurate than the HOG based model, but it needs a GPU "
              "to run "
-             "at a reasonable speed."},
+             "at a reasonable speed.",
+     .note = "legacy pipeline only",
+     .requiresKey = "pipeline",
+     .requiresValue = "legacy"},
     {
         .section = "core",
         .key = "workaround",
