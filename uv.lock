@@ -386,7 +386,7 @@ wheels = [
 
 [[package]]
 name = "mediapipe"
-version = "1.2.0"
+version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -398,8 +398,8 @@ dependencies = [
     { name = "sounddevice" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/49/f22b94153e68f3d595ca9fbdd39c91d6e0d63b331d9c10cbe8a60ad52f6c/mediapipe-1.2.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:1ac8e192805ec243ddf9a451b91c6d6d242e5675b1efa3743b35fb8e52ad84d1", size = 40073853, upload-time = "2026-10-27T22:42:15.827Z" },
-    { url = "https://files.pythonhosted.org/packages/8a/ac/5cce7aa205f01cb79a7c7a025822375557a78c0c2ef448b25941c3706f17/mediapipe-1.2.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:949021c5b3da74fcb66cffc2abc16219903958f58b2cbb1868f77a726e9c5799", size = 42719266, upload-time = "2026-10-27T22:42:18.824Z" },
+    { url = "https://files.pythonhosted.org/packages/50/0d/02afdfe0e2c4c1d9a80b7a2d65951cdb82438a22ea76bb0a65e0c3d8a36f/mediapipe-1.2.2-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:9837dc18ac903a34b4e46aa56eadbdb2648a8b66ab9d73202118e77e893edcb8", size = 40251116, upload-time = "2026-11-03T17:51:59.185Z" },
+    { url = "https://files.pythonhosted.org/packages/86/67/717b257855c5550a3449907e110954506a306bf3e127717f7ab45450f0da/mediapipe-1.2.2-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:c0b641bf1515dd186036da711df597a514466c0ba97a138f35b698ecc0411a61", size = 42910755, upload-time = "2026-11-03T17:52:02.721Z" },
 ]
 
 [[package]]
@@ -697,14 +697,14 @@ wheels = [
 
 [[package]]
 name = "ruff"
-version = "0.17.3"
+version = "0.17.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/59/73/81f140c4edd9cc323de5478e6bbd3bbcfae9a82692df1a258de8cec6a6d2/ruff-0.17.3.tar.gz", hash = "sha256:a57049c8addb3662073859bb55a7ad35aa54f8a7c9ed268911d1333c5aadaaa9", size = 5339444, upload-time = "2026-10-27T00:34:05.914Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/0e/3d154514b5bad104f7e1c13169c2d09aa9959fccdc06eb47610ccdfa83ed/ruff-0.17.4.tar.gz", hash = "sha256:f32d178b50e826e00f6c6c1be3f56333068acb9b67fe167143527fa9b81e890d", size = 5357750, upload-time = "2026-11-05T18:52:17.638Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/66/283e39734f66c8a5ebaa93c22eb7b7515779a0b1d5a5c0ad20e05c0edb41/ruff-0.17.3-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ab5fa7ed5ce18554ea69d850ad162cbaa0c85fc47c08d83a569f806681c9a6ad", size = 10094281, upload-time = "2026-10-27T00:33:38.216Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/20/fecedea2209f574ab92033b344e01a7f0c2dc76c6d6d19a14c9f8141173f/ruff-0.17.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7fa4b0f931cdbcb8a52044f370a3eb429fb42eb88807b0e800fcaa98dd42b24e", size = 10577491, upload-time = "2026-10-27T00:33:48.233Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/b7/7d3f5f14145daead1efb0b9a8289ed1daa100f419d60774375951723ce00/ruff-0.17.3-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:68074094f55ca3d29ab19491f640282f7a84061c4c7977aa5094b968ca457e9a", size = 10075057, upload-time = "2026-10-27T00:33:52.074Z" },
-    { url = "https://files.pythonhosted.org/packages/af/b2/05c39857c2526fcbebe46ad93a8dc97424656dfef14d3ef933abe1ffd331/ruff-0.17.3-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:692fdb46d0fd9c71e380947dc5fc72f2c3f881073bc1f739e4579376231affbe", size = 10799780, upload-time = "2026-10-27T00:33:58.204Z" },
+    { url = "https://files.pythonhosted.org/packages/58/de/a392dc38b215798ae72e639d228b7f6c02d826a95d1c0ad7c4c0ee49ef5b/ruff-0.17.4-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8ea6e0017c785f7282092b11e46338e4ebed1b9e575ebf2e55a8a1eda968241a", size = 10136900, upload-time = "2026-11-05T18:51:44.562Z" },
+    { url = "https://files.pythonhosted.org/packages/af/1b/62874f14c7873f27c7887d2b1ea41de990e14ba9518801ffe8eacb5d51a6/ruff-0.17.4-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2cd025509b2e15721b426fc70fd946d71f43b3db3b08e946dfec2d696d911690", size = 10572829, upload-time = "2026-11-05T18:51:56.129Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/08/781a4b41a1c83fd6e30fea610d6502a6f94e49cf94693fd37bdcbc6bfe11/ruff-0.17.4-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:e3b84eb74f260d1c2dbd236fd9d4c011d4fdd0a52bdf8aea57a10e3a1b71fca5", size = 10111955, upload-time = "2026-11-05T18:52:00.59Z" },
+    { url = "https://files.pythonhosted.org/packages/8b/b8/0796468423413ea4df1a6e2442ae26cf49b8f7dda0eecf246e0d5d0dde54/ruff-0.17.4-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:6007e7f3a0e55b0fbdb947af69cf24c21b4928df6be8ef3e767c69b5ccccf496", size = 10826033, upload-time = "2026-11-05T18:52:08.675Z" },
 ]
 
 [[package]]
@@ -740,7 +740,7 @@ requires-dist = [
     { name = "dlib", marker = "extra == 'dlib'", specifier = "==20.0.1" },
     { name = "ffmpeg-python", specifier = "==0.2.0" },
     { name = "keyboard", specifier = "==0.13.5" },
-    { name = "mediapipe", specifier = "==1.2.0" },
+    { name = "mediapipe", specifier = "==1.2.2" },
     { name = "numpy", specifier = "==2.5.4" },
     { name = "opencv-contrib-python", specifier = "==5.0.0.93" },
     { name = "pyv4l2", marker = "extra == 'pyv4l2'", specifier = "==1.0.2" },
@@ -752,7 +752,7 @@ dev = [
     { name = "mypy", specifier = "==2.4.1" },
     { name = "pre-commit", specifier = "==4.7.0" },
     { name = "pytest", specifier = "==9.2.0" },
-    { name = "ruff", specifier = "==0.17.3" },
+    { name = "ruff", specifier = "==0.17.4" },
 ]
 
 [[package]]
