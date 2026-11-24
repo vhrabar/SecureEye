@@ -26,14 +26,14 @@ matplotlib==3.11.2 ; (platform_machine == 'aarch64' and sys_platform == 'linux')
     # via mediapipe
 mediapipe==1.2.3 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via secureeye
-numpy==2.5.4 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
+numpy==2.5.5 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via
     #   contourpy
     #   matplotlib
     #   mediapipe
     #   opencv-contrib-python
     #   secureeye
-opencv-contrib-python==5.0.0.93 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
+opencv-contrib-python==5.1.0.95 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via
     #   mediapipe
     #   secureeye
